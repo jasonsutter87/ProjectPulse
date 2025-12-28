@@ -44,4 +44,7 @@ coverage/
 # Misc
 *.log
 *.tsbuildinfo
-next-env.d.ts
+
+# SQLite WAL files
+*.db-wal
+*.db-shm
