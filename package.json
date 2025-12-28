@@ -1,0 +1,22 @@
+{
+  "name": "project-pulse",
+  "version": "0.1.0",
+  "description": "Scrum board with AI agent for managing multiple projects",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:init": "node scripts/init-db.js"
+  },
+  "keywords": [
+    "scrum",
+    "kanban",
+    "project-management",
+    "ai-agent",
+    "claude-code"
+  ],
+  "author": "",
+  "license": "MIT"
+}
