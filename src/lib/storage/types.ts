@@ -19,6 +19,7 @@ export interface CreateTicketData {
   project_id?: number | null;
   status?: TicketStatus;
   priority?: TicketPriority;
+  due_date?: string | null;
   tag_ids?: number[];
 }
 
@@ -29,6 +30,7 @@ export interface UpdateTicketData {
   status?: TicketStatus;
   priority?: TicketPriority;
   position?: number;
+  due_date?: string | null;
   tag_ids?: number[];
 }
 

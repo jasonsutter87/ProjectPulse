@@ -38,15 +38,15 @@ export function Column({ id, title, tickets, onTicketClick, onAddClick }: Column
 
   return (
     <div
-      className={`flex flex-col w-72 flex-shrink-0 rounded-lg ${COLUMN_COLORS[id]} ${
+      className={`flex flex-col w-[280px] sm:w-72 flex-shrink-0 rounded-lg ${COLUMN_COLORS[id]} ${
         isOver ? 'ring-2 ring-blue-400' : ''
       }`}
     >
       <div
-        className={`flex items-center justify-between px-3 py-2 rounded-t-lg ${HEADER_COLORS[id]}`}
+        className={`flex items-center justify-between px-2 sm:px-3 py-2 rounded-t-lg ${HEADER_COLORS[id]}`}
       >
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-sm">{title}</h3>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <h3 className="font-semibold text-xs sm:text-sm">{title}</h3>
           <span className="text-xs opacity-70">({tickets.length})</span>
         </div>
         {onAddClick && (
@@ -60,7 +60,7 @@ export function Column({ id, title, tickets, onTicketClick, onAddClick }: Column
           </Button>
         )}
       </div>
-      <ScrollArea className="flex-1 p-2" style={{ height: 'calc(100vh - 180px)' }}>
+      <ScrollArea className="flex-1 p-1.5 sm:p-2" style={{ height: 'calc(100vh - 220px)' }}>
         <div ref={setNodeRef} className="min-h-[100px]">
           <SortableContext
             items={tickets.map((t) => t.id)}

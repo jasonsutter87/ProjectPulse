@@ -221,6 +221,7 @@ export function Board() {
     project_id: number | null;
     status: TicketStatus;
     priority: TicketPriority;
+    due_date: string | null;
     tag_ids: number[];
   }) => {
     const url = editingTicket
@@ -253,21 +254,22 @@ export function Board() {
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <div className="flex items-center gap-2">
-          <Button onClick={() => handleAddClick('backlog')}>
+          <Button onClick={() => handleAddClick('backlog')} size="sm" className="sm:h-10 sm:px-4">
             <Plus size={16} className="mr-1" />
-            New Ticket
+            <span className="hidden xs:inline">New Ticket</span>
+            <span className="xs:hidden">Add</span>
           </Button>
-          <Button variant="outline" size="icon" onClick={fetchData}>
+          <Button variant="outline" size="icon" onClick={fetchData} className="h-9 w-9 sm:h-10 sm:w-10">
             <RefreshCw size={16} />
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           {/* Project Filter */}
           <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40 h-9 sm:h-10">
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
@@ -281,10 +283,10 @@ export function Board() {
           </Select>
 
           {/* Tag Filter */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 -mx-1 px-1">
             <Badge
               variant={filterTag === 'all' ? 'default' : 'outline'}
-              className="cursor-pointer"
+              className="cursor-pointer flex-shrink-0"
               onClick={() => setFilterTag('all')}
             >
               All
@@ -293,7 +295,7 @@ export function Board() {
               <Badge
                 key={tag.id}
                 variant={filterTag === tag.id.toString() ? 'default' : 'outline'}
-                className="cursor-pointer"
+                className="cursor-pointer flex-shrink-0"
                 style={
                   filterTag === tag.id.toString()
                     ? { backgroundColor: tag.color }

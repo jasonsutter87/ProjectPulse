@@ -143,15 +143,16 @@ export class SQLiteStorage implements Storage {
     `).get(status) as { max_pos: number };
 
     const result = db.prepare(`
-      INSERT INTO tickets (title, description, project_id, status, priority, position)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO tickets (title, description, project_id, status, priority, position, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.title,
       data.description || null,
       data.project_id || null,
       status,
       data.priority || 0,
-      maxPos.max_pos + 1
+      maxPos.max_pos + 1,
+      data.due_date || null
     );
 
     const ticketId = result.lastInsertRowid as number;
@@ -180,6 +181,7 @@ export class SQLiteStorage implements Storage {
     if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
     if (data.priority !== undefined) { updates.push('priority = ?'); values.push(data.priority); }
     if (data.position !== undefined) { updates.push('position = ?'); values.push(data.position); }
+    if (data.due_date !== undefined) { updates.push('due_date = ?'); values.push(data.due_date); }
 
     if (updates.length > 0) {
       updates.push("updated_at = datetime('now')");

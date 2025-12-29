@@ -187,6 +187,7 @@ export class BlobStorage implements Storage {
       status: status as TicketStatus,
       priority: (input.priority || 0) as TicketPriority,
       position,
+      due_date: input.due_date || null,
       created_at: now,
       updated_at: now,
       tags,
@@ -209,6 +210,7 @@ export class BlobStorage implements Storage {
     if (input.status !== undefined) ticket.status = input.status;
     if (input.priority !== undefined) ticket.priority = input.priority;
     if (input.position !== undefined) ticket.position = input.position;
+    if (input.due_date !== undefined) ticket.due_date = input.due_date;
     if (input.tag_ids !== undefined) {
       ticket.tags = input.tag_ids.map((tagId) => data.tags[tagId]).filter(Boolean);
     }

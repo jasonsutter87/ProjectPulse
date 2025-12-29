@@ -14,6 +14,15 @@ export function getDb(): Database.Database {
   return db;
 }
 
+function runMigrations(db: Database.Database) {
+  // Add due_date column if it doesn't exist
+  const columns = db.prepare("PRAGMA table_info(tickets)").all() as { name: string }[];
+  const hasDueDate = columns.some((col) => col.name === 'due_date');
+  if (!hasDueDate) {
+    db.exec('ALTER TABLE tickets ADD COLUMN due_date TEXT');
+  }
+}
+
 export function initializeSchema() {
   const db = getDb();
 
@@ -45,6 +54,7 @@ export function initializeSchema() {
       status TEXT DEFAULT 'backlog' CHECK(status IN ('backlog', 'in_progress', 'review', 'done')),
       priority INTEGER DEFAULT 0 CHECK(priority IN (0, 1, 2, 3)),
       position INTEGER DEFAULT 0,
+      due_date TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -62,6 +72,9 @@ export function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_ticket_tags_ticket ON ticket_tags(ticket_id);
     CREATE INDEX IF NOT EXISTS idx_ticket_tags_tag ON ticket_tags(tag_id);
   `);
+
+  // Run migrations for existing databases
+  runMigrations(db);
 
   return db;
 }

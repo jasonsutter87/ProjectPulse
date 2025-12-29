@@ -5,11 +5,32 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TicketWithTags, PRIORITY_COLORS, TicketPriority } from '@/types';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Calendar } from 'lucide-react';
 
 interface TicketCardProps {
   ticket: TicketWithTags;
   onClick?: () => void;
+}
+
+function formatDueDate(dateStr: string): { text: string; isOverdue: boolean; isDueSoon: boolean } {
+  const due = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { text: `${Math.abs(diffDays)}d overdue`, isOverdue: true, isDueSoon: false };
+  } else if (diffDays === 0) {
+    return { text: 'Due today', isOverdue: false, isDueSoon: true };
+  } else if (diffDays === 1) {
+    return { text: 'Due tomorrow', isOverdue: false, isDueSoon: true };
+  } else if (diffDays <= 7) {
+    return { text: `Due in ${diffDays}d`, isOverdue: false, isDueSoon: true };
+  } else {
+    return { text: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), isOverdue: false, isDueSoon: false };
+  }
 }
 
 export function TicketCard({ ticket, onClick }: TicketCardProps) {
@@ -34,12 +55,12 @@ export function TicketCard({ ticket, onClick }: TicketCardProps) {
     <Card
       ref={setNodeRef}
       style={style}
-      className={`mb-2 cursor-pointer hover:shadow-md transition-shadow ${
+      className={`mb-2 cursor-pointer hover:shadow-md transition-shadow touch-manipulation ${
         isDragging ? 'shadow-lg' : ''
       }`}
       onClick={onClick}
     >
-      <CardContent className="p-3">
+      <CardContent className="p-2.5 sm:p-3">
         <div className="flex items-start gap-2">
           <button
             {...attributes}
@@ -77,11 +98,22 @@ export function TicketCard({ ticket, onClick }: TicketCardProps) {
                 </Badge>
               ))}
             </div>
-            {ticket.project && (
-              <p className="text-xs text-gray-400 mt-2 truncate">
-                {ticket.project.name}
-              </p>
-            )}
+            <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+              <div className="flex items-center gap-2">
+                {ticket.project && (
+                  <span className="truncate max-w-[100px]">{ticket.project.name}</span>
+                )}
+              </div>
+              {ticket.due_date && (() => {
+                const { text, isOverdue, isDueSoon } = formatDueDate(ticket.due_date);
+                return (
+                  <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500' : isDueSoon ? 'text-orange-500' : ''}`}>
+                    <Calendar size={12} />
+                    {text}
+                  </span>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </CardContent>

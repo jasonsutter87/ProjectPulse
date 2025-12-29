@@ -85,6 +85,14 @@ When the user invokes `/board`, parse their command and interact with the Projec
 2. Display tech stack, missing items, suggested todos
 3. If `--import` flag, POST to `/api/scan/import` to create project and tickets
 
+**For intelligent roadmap scanning (natural language):**
+When user says "Scan [path] and add tasks from the roadmap":
+1. Read ROADMAP.md, TODO.md, README.md, and other planning files
+2. Check the actual codebase to see what's already implemented
+3. Only create tickets for items that are NOT yet complete
+4. Skip items where the code/feature already exists
+5. Tag appropriately based on task type (dev, marketing, go-live, etc.)
+
 **For `/board status`:**
 1. Fetch all tickets
 2. Show count per column: Backlog (X) | In Progress (X) | Review (X) | Done (X)
@@ -148,4 +156,14 @@ Use '/board scan <path> --import' to create project and tickets.
 
 ### Configuration
 
-The skill assumes ProjectPulse is running at `http://localhost:3000`. If the user has configured a different port, they should set the `PULSE_API_URL` environment variable.
+**API URL Priority:**
+1. If `PULSE_API_URL` env var is set, use that
+2. If in a project directory with ProjectPulse, check if localhost:3000 is running
+3. Otherwise, use the production URL: `https://YOUR-NETLIFY-SITE.netlify.app`
+
+Before making API calls, check if the API is reachable. For production, the user should set:
+```bash
+export PULSE_API_URL="https://your-projectpulse.netlify.app"
+```
+
+Or add to their shell profile (~/.zshrc or ~/.bashrc).

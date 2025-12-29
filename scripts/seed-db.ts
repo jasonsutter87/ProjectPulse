@@ -23,9 +23,9 @@ try {
   insertMany(DEFAULT_TAGS);
 
   // Verify tags
-  const tags = db.prepare('SELECT * FROM tags').all();
+  const tags = db.prepare('SELECT * FROM tags').all() as { id: number; name: string; color: string }[];
   console.log('Tags in database:');
-  tags.forEach((tag: { id: number; name: string; color: string }) => {
+  tags.forEach((tag) => {
     console.log(`  - ${tag.name} (${tag.color})`);
   });
 

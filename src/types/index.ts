@@ -27,6 +27,7 @@ export interface Ticket {
   status: TicketStatus;
   priority: TicketPriority;
   position: number;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +46,7 @@ export interface CreateTicketRequest {
   project_id?: number;
   status?: TicketStatus;
   priority?: TicketPriority;
+  due_date?: string | null;
   tag_ids?: number[];
 }
 
@@ -55,6 +57,7 @@ export interface UpdateTicketRequest {
   status?: TicketStatus;
   priority?: TicketPriority;
   position?: number;
+  due_date?: string | null;
   tag_ids?: number[];
 }
 
