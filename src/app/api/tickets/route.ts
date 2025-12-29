@@ -47,6 +47,8 @@ export async function POST(request: NextRequest) {
       project_id: body.project_id,
       status: body.status,
       priority: body.priority,
+      start_date: body.start_date,
+      due_date: body.due_date,
       tag_ids: body.tag_ids,
     });
 
