@@ -143,8 +143,8 @@ export class SQLiteStorage implements Storage {
     `).get(status) as { max_pos: number };
 
     const result = db.prepare(`
-      INSERT INTO tickets (title, description, project_id, status, priority, position, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tickets (title, description, project_id, status, priority, position, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.title,
       data.description || null,
@@ -152,6 +152,7 @@ export class SQLiteStorage implements Storage {
       status,
       data.priority || 0,
       maxPos.max_pos + 1,
+      data.start_date || null,
       data.due_date || null
     );
 
@@ -181,6 +182,7 @@ export class SQLiteStorage implements Storage {
     if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
     if (data.priority !== undefined) { updates.push('priority = ?'); values.push(data.priority); }
     if (data.position !== undefined) { updates.push('position = ?'); values.push(data.position); }
+    if (data.start_date !== undefined) { updates.push('start_date = ?'); values.push(data.start_date); }
     if (data.due_date !== undefined) { updates.push('due_date = ?'); values.push(data.due_date); }
 
     if (updates.length > 0) {

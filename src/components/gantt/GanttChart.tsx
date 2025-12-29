@@ -55,9 +55,9 @@ export function GanttChart({ tickets, projects, onTicketClick }: GanttChartProps
 
   const endDate = useMemo(() => addDays(startDate, weeksToShow * 7), [startDate, weeksToShow]);
 
-  // Filter tickets that have due dates
+  // Filter tickets that have start_date or due_date
   const ticketsWithDates = useMemo(() =>
-    tickets.filter(t => t.due_date),
+    tickets.filter(t => t.start_date || t.due_date),
     [tickets]
   );
 
@@ -118,18 +118,45 @@ export function GanttChart({ tickets, projects, onTicketClick }: GanttChartProps
   };
 
   const getTicketPosition = (ticket: TicketWithTags) => {
-    if (!ticket.due_date) return null;
+    const hasStart = !!ticket.start_date;
+    const hasEnd = !!ticket.due_date;
 
-    const dueDate = new Date(ticket.due_date);
-    const dayIndex = getDaysBetween(startDate, dueDate);
+    if (!hasStart && !hasEnd) return null;
 
-    // If due date is outside visible range, don't show
+    // If we have both dates, show a bar
+    if (hasStart && hasEnd) {
+      const startDay = new Date(ticket.start_date!);
+      const endDay = new Date(ticket.due_date!);
+      const startIndex = getDaysBetween(startDate, startDay);
+      const endIndex = getDaysBetween(startDate, endDay);
+
+      // Check if bar is at least partially visible
+      if (endIndex < 0 || startIndex >= days.length) return null;
+
+      // Clamp to visible range
+      const clampedStart = Math.max(0, startIndex);
+      const clampedEnd = Math.min(days.length - 1, endIndex);
+
+      const left = (clampedStart / days.length) * 100;
+      const width = ((clampedEnd - clampedStart + 1) / days.length) * 100;
+
+      return {
+        type: 'bar' as const,
+        left: `${left}%`,
+        width: `${width}%`,
+        clippedStart: startIndex < 0,
+        clippedEnd: endIndex >= days.length,
+      };
+    }
+
+    // Single date - show as dot
+    const singleDate = hasEnd ? new Date(ticket.due_date!) : new Date(ticket.start_date!);
+    const dayIndex = getDaysBetween(startDate, singleDate);
+
     if (dayIndex < 0 || dayIndex >= days.length) return null;
 
-    // Position as percentage
     const left = (dayIndex / days.length) * 100;
-
-    return { left: `${left}%`, dayIndex };
+    return { type: 'dot' as const, left: `${left}%`, dayIndex };
   };
 
   const isToday = (date: Date): boolean => {
@@ -146,8 +173,8 @@ export function GanttChart({ tickets, projects, onTicketClick }: GanttChartProps
     return (
       <div className="flex flex-col items-center justify-center py-16 text-gray-500">
         <Calendar size={48} className="mb-4 opacity-50" />
-        <p className="text-lg font-medium">No tickets with due dates</p>
-        <p className="text-sm">Add due dates to your tickets to see them on the timeline</p>
+        <p className="text-lg font-medium">No tickets with dates</p>
+        <p className="text-sm">Add start and/or due dates to your tickets to see them on the timeline</p>
       </div>
     );
   }
@@ -233,7 +260,12 @@ export function GanttChart({ tickets, projects, onTicketClick }: GanttChartProps
               const pos = getTicketPosition(ticket);
               if (!pos) return null;
 
-              const isOverdue = new Date(ticket.due_date!) < new Date() && ticket.status !== 'done';
+              const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && ticket.status !== 'done';
+              const tooltipText = ticket.start_date && ticket.due_date
+                ? `${ticket.title}\nStart: ${new Date(ticket.start_date).toLocaleDateString()}\nDue: ${new Date(ticket.due_date).toLocaleDateString()}`
+                : ticket.due_date
+                  ? `${ticket.title} - Due: ${new Date(ticket.due_date).toLocaleDateString()}`
+                  : `${ticket.title} - Start: ${new Date(ticket.start_date!).toLocaleDateString()}`;
 
               return (
                 <div key={ticket.id} className="flex border-b hover:bg-gray-50">
@@ -260,22 +292,47 @@ export function GanttChart({ tickets, projects, onTicketClick }: GanttChartProps
                         style={{ left: `${(i / days.length) * 100}%`, width: `${100 / days.length}%` }}
                       />
                     ))}
-                    {/* Ticket marker */}
-                    <div
-                      className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer z-10 ${
-                        isOverdue ? 'animate-pulse' : ''
-                      }`}
-                      style={{ left: pos.left }}
-                      onClick={() => onTicketClick?.(ticket)}
-                      title={`${ticket.title} - Due: ${new Date(ticket.due_date!).toLocaleDateString()}`}
-                    >
+                    {/* Ticket marker - bar or dot */}
+                    {pos.type === 'bar' ? (
                       <div
-                        className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-md ${
-                          isOverdue ? 'ring-2 ring-red-400' : ''
+                        className={`absolute top-1/2 -translate-y-1/2 h-6 cursor-pointer z-10 ${
+                          isOverdue ? 'animate-pulse' : ''
                         }`}
-                        style={{ backgroundColor: STATUS_COLORS[ticket.status] }}
-                      />
-                    </div>
+                        style={{
+                          left: pos.left,
+                          width: pos.width,
+                          backgroundColor: STATUS_COLORS[ticket.status],
+                          borderRadius: pos.clippedStart ? '0 4px 4px 0' : pos.clippedEnd ? '4px 0 0 4px' : '4px',
+                          opacity: 0.9,
+                        }}
+                        onClick={() => onTicketClick?.(ticket)}
+                        title={tooltipText}
+                      >
+                        <div className={`h-full flex items-center px-1 text-xs text-white font-medium truncate ${
+                          isOverdue ? 'ring-2 ring-red-400 rounded' : ''
+                        }`}>
+                          {pos.width && parseFloat(pos.width) > 10 && (
+                            <span className="truncate">{ticket.title}</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer z-10 ${
+                          isOverdue ? 'animate-pulse' : ''
+                        }`}
+                        style={{ left: pos.left }}
+                        onClick={() => onTicketClick?.(ticket)}
+                        title={tooltipText}
+                      >
+                        <div
+                          className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-md ${
+                            isOverdue ? 'ring-2 ring-red-400' : ''
+                          }`}
+                          style={{ backgroundColor: STATUS_COLORS[ticket.status] }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               );

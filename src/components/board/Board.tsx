@@ -221,6 +221,7 @@ export function Board() {
     project_id: number | null;
     status: TicketStatus;
     priority: TicketPriority;
+    start_date: string | null;
     due_date: string | null;
     tag_ids: number[];
   }) => {

@@ -43,6 +43,7 @@ interface TicketModalProps {
     project_id: number | null;
     status: TicketStatus;
     priority: TicketPriority;
+    start_date: string | null;
     due_date: string | null;
     tag_ids: number[];
   }) => Promise<void>;
@@ -64,6 +65,7 @@ export function TicketModal({
   const [projectId, setProjectId] = useState<string>('none');
   const [status, setStatus] = useState<TicketStatus>(defaultStatus);
   const [priority, setPriority] = useState<TicketPriority>(0);
+  const [startDate, setStartDate] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
@@ -75,6 +77,7 @@ export function TicketModal({
       setProjectId(ticket.project_id?.toString() || 'none');
       setStatus(ticket.status);
       setPriority(ticket.priority);
+      setStartDate(ticket.start_date || '');
       setDueDate(ticket.due_date || '');
       setSelectedTags(ticket.tags.map((t) => t.id));
     } else {
@@ -83,6 +86,7 @@ export function TicketModal({
       setProjectId('none');
       setStatus(defaultStatus);
       setPriority(0);
+      setStartDate('');
       setDueDate('');
       setSelectedTags([]);
     }
@@ -107,6 +111,7 @@ export function TicketModal({
         project_id: projectId === 'none' ? null : parseInt(projectId),
         status,
         priority,
+        start_date: startDate || null,
         due_date: dueDate || null,
         tag_ids: selectedTags,
       });
@@ -195,22 +200,35 @@ export function TicketModal({
             </div>
           </div>
 
+          <div>
+            <label className="text-sm font-medium">Project</label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger className="mt-1 h-9 sm:h-10">
+                <SelectValue placeholder="No project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No project</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id.toString()}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="text-sm font-medium">Project</label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger className="mt-1 h-9 sm:h-10">
-                  <SelectValue placeholder="No project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No project</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Start Date</label>
+              <div className="relative mt-1">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pl-9 h-9 sm:h-10"
+                />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
             </div>
 
             <div>
