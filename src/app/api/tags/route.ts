@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import { Tag, CreateTagRequest } from '@/types';
+import { getStorage } from '@/lib/storage';
 
 // GET /api/tags - List all tags
 export async function GET() {
   try {
-    const db = getDb();
-    const tags = db.prepare('SELECT * FROM tags ORDER BY name ASC').all() as Tag[];
-
+    const storage = getStorage();
+    const tags = await storage.getTags();
     return NextResponse.json(tags);
   } catch (error) {
     console.error('Failed to fetch tags:', error);
@@ -21,8 +19,8 @@ export async function GET() {
 // POST /api/tags - Create a new tag
 export async function POST(request: NextRequest) {
   try {
-    const db = getDb();
-    const body: CreateTagRequest = await request.json();
+    const storage = getStorage();
+    const body = await request.json();
 
     if (!body.name) {
       return NextResponse.json(
@@ -31,19 +29,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const stmt = db.prepare(`
-      INSERT INTO tags (name, color)
-      VALUES (?, ?)
-    `);
-
-    const result = stmt.run(body.name.toLowerCase(), body.color || '#6b7280');
-
-    const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(result.lastInsertRowid) as Tag;
-
+    const tag = await storage.createTag(body.name, body.color);
     return NextResponse.json(tag, { status: 201 });
   } catch (error: unknown) {
     console.error('Failed to create tag:', error);
-    if (error instanceof Error && error.message.includes('UNIQUE constraint')) {
+    if (error instanceof Error && error.message.includes('UNIQUE')) {
       return NextResponse.json(
         { error: 'A tag with this name already exists' },
         { status: 409 }

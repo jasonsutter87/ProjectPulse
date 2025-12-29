@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import { Project, CreateProjectRequest } from '@/types';
+import { getStorage } from '@/lib/storage';
 
 // GET /api/projects - List all projects
 export async function GET(request: NextRequest) {
   try {
-    const db = getDb();
+    const storage = getStorage();
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
 
-    let query = 'SELECT * FROM projects';
-    if (activeOnly) {
-      query += ' WHERE is_active = 1';
-    }
-    query += ' ORDER BY name ASC';
-
-    const projects = db.prepare(query).all() as Project[];
-
+    const projects = await storage.getProjects(activeOnly);
     return NextResponse.json(projects);
   } catch (error) {
     console.error('Failed to fetch projects:', error);
@@ -30,8 +22,8 @@ export async function GET(request: NextRequest) {
 // POST /api/projects - Create a new project
 export async function POST(request: NextRequest) {
   try {
-    const db = getDb();
-    const body: CreateProjectRequest = await request.json();
+    const storage = getStorage();
+    const body = await request.json();
 
     if (!body.name || !body.path) {
       return NextResponse.json(
@@ -40,24 +32,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const stmt = db.prepare(`
-      INSERT INTO projects (name, path, description)
-      VALUES (?, ?, ?)
-    `);
-
-    const result = stmt.run(body.name, body.path, body.description || null);
-
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as Project;
-
-    return NextResponse.json(project, { status: 201 });
-  } catch (error: unknown) {
-    console.error('Failed to create project:', error);
-    if (error instanceof Error && error.message.includes('UNIQUE constraint')) {
+    // Check if path already exists
+    const existing = await storage.getProjectByPath(body.path);
+    if (existing) {
       return NextResponse.json(
         { error: 'A project with this path already exists' },
         { status: 409 }
       );
     }
+
+    const project = await storage.createProject({
+      name: body.name,
+      path: body.path,
+      description: body.description,
+    });
+
+    return NextResponse.json(project, { status: 201 });
+  } catch (error) {
+    console.error('Failed to create project:', error);
     return NextResponse.json(
       { error: 'Failed to create project' },
       { status: 500 }

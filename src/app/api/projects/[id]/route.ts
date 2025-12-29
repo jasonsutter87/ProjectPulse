@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import { Project, UpdateProjectRequest } from '@/types';
+import { getStorage } from '@/lib/storage';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -8,9 +7,9 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const storage = getStorage();
 
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as Project | undefined;
+    const project = await storage.getProject(parseInt(id));
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
@@ -30,52 +29,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
-    const body: UpdateProjectRequest = await request.json();
+    const storage = getStorage();
+    const body = await request.json();
 
-    // Check if project exists
-    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
-    if (!existing) {
+    const project = await storage.updateProject(parseInt(id), body);
+
+    if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
-
-    // Build dynamic update query
-    const updates: string[] = [];
-    const values: (string | number | boolean)[] = [];
-
-    if (body.name !== undefined) {
-      updates.push('name = ?');
-      values.push(body.name);
-    }
-    if (body.path !== undefined) {
-      updates.push('path = ?');
-      values.push(body.path);
-    }
-    if (body.description !== undefined) {
-      updates.push('description = ?');
-      values.push(body.description);
-    }
-    if (body.is_active !== undefined) {
-      updates.push('is_active = ?');
-      values.push(body.is_active ? 1 : 0);
-    }
-
-    if (updates.length === 0) {
-      return NextResponse.json(
-        { error: 'No fields to update' },
-        { status: 400 }
-      );
-    }
-
-    updates.push("updated_at = datetime('now')");
-    values.push(parseInt(id));
-
-    const stmt = db.prepare(`
-      UPDATE projects SET ${updates.join(', ')} WHERE id = ?
-    `);
-    stmt.run(...values);
-
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as Project;
 
     return NextResponse.json(project);
   } catch (error) {
@@ -91,14 +52,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const storage = getStorage();
 
-    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
-    if (!existing) {
+    const deleted = await storage.deleteProject(parseInt(id));
+
+    if (!deleted) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
-
-    db.prepare('DELETE FROM projects WHERE id = ?').run(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

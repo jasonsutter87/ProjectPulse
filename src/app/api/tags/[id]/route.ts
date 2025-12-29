@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getStorage } from '@/lib/storage';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -7,15 +7,13 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const storage = getStorage();
 
-    const existing = db.prepare('SELECT * FROM tags WHERE id = ?').get(id);
-    if (!existing) {
+    const deleted = await storage.deleteTag(parseInt(id));
+
+    if (!deleted) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
     }
-
-    // Ticket tags are automatically deleted via CASCADE
-    db.prepare('DELETE FROM tags WHERE id = ?').run(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

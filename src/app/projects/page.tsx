@@ -204,12 +204,12 @@ export default function ProjectsPage() {
 
         {/* Scan Modal */}
         <Dialog open={scanModalOpen} onOpenChange={closeScanModal}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Scan Project</DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-sm font-medium">Project Path</label>
                 <div className="flex gap-2 mt-1">
@@ -311,7 +311,7 @@ export default function ProjectsPage() {
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0">
               <Button variant="outline" onClick={closeScanModal}>
                 Close
               </Button>

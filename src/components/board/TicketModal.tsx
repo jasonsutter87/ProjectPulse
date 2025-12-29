@@ -126,12 +126,12 @@ export function TicketModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{ticket ? 'Edit Ticket' : 'New Ticket'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto flex-1">
           <div>
             <label className="text-sm font-medium">Title</label>
             <Input
@@ -229,7 +229,7 @@ export function TicketModal({
           </div>
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter className="flex justify-between flex-shrink-0">
           <div>
             {ticket && onDelete && (
               <Button
