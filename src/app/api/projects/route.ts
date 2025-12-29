@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from '@/lib/storage';
+import { getUserId } from '@/lib/auth';
 
 // GET /api/projects - List all projects
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
 
-    const projects = await storage.getProjects(activeOnly);
+    const projects = await storage.getProjects(userId, activeOnly);
     return NextResponse.json(projects);
   } catch (error) {
     console.error('Failed to fetch projects:', error);
@@ -22,6 +24,7 @@ export async function GET(request: NextRequest) {
 // POST /api/projects - Create a new project
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
     const body = await request.json();
 
@@ -32,8 +35,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if path already exists
-    const existing = await storage.getProjectByPath(body.path);
+    // Check if path already exists for this user
+    const existing = await storage.getProjectByPath(userId, body.path);
     if (existing) {
       return NextResponse.json(
         { error: 'A project with this path already exists' },
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const project = await storage.createProject({
+    const project = await storage.createProject(userId, {
       name: body.name,
       path: body.path,
       description: body.description,

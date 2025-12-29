@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from '@/lib/storage';
+import { getUserId } from '@/lib/auth';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -7,9 +8,10 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const userId = await getUserId();
     const storage = getStorage();
 
-    const ticket = await storage.getTicket(parseInt(id));
+    const ticket = await storage.getTicket(userId, parseInt(id));
 
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
@@ -29,10 +31,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const userId = await getUserId();
     const storage = getStorage();
     const body = await request.json();
 
-    const ticket = await storage.updateTicket(parseInt(id), body);
+    const ticket = await storage.updateTicket(userId, parseInt(id), body);
 
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
@@ -52,9 +55,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const userId = await getUserId();
     const storage = getStorage();
 
-    const deleted = await storage.deleteTicket(parseInt(id));
+    const deleted = await storage.deleteTicket(userId, parseInt(id));
 
     if (!deleted) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });

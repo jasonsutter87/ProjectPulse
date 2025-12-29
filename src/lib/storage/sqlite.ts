@@ -9,8 +9,20 @@ import {
   TicketFilters,
 } from './types';
 
-function getTicketWithTags(db: ReturnType<typeof getDb>, ticketId: number): TicketWithTags | null {
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId) as Ticket | undefined;
+function getTicketWithTags(db: ReturnType<typeof getDb>, userId: string | null, ticketId: number): TicketWithTags | null {
+  // Build query based on whether userId is provided
+  let ticketQuery = 'SELECT t.* FROM tickets t';
+  const params: (string | number)[] = [ticketId];
+
+  if (userId !== null) {
+    ticketQuery += ' JOIN projects p ON t.project_id = p.id WHERE t.id = ? AND p.user_id = ?';
+    params.push(userId);
+  } else {
+    // In single-user mode, also include tickets without a project
+    ticketQuery += ' LEFT JOIN projects p ON t.project_id = p.id WHERE t.id = ? AND (p.user_id IS NULL OR t.project_id IS NULL)';
+  }
+
+  const ticket = db.prepare(ticketQuery).get(...params) as Ticket | undefined;
   if (!ticket) return null;
 
   const tags = db.prepare(`
@@ -29,36 +41,68 @@ function getTicketWithTags(db: ReturnType<typeof getDb>, ticketId: number): Tick
 
 export class SQLiteStorage implements Storage {
   // Projects
-  async getProjects(activeOnly = false): Promise<Project[]> {
+  async getProjects(userId: string | null, activeOnly = false): Promise<Project[]> {
     const db = getDb();
-    let query = 'SELECT * FROM projects';
-    if (activeOnly) query += ' WHERE is_active = 1';
+    let query = 'SELECT * FROM projects WHERE 1=1';
+    const params: (string | number)[] = [];
+
+    if (userId !== null) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    } else {
+      query += ' AND user_id IS NULL';
+    }
+
+    if (activeOnly) {
+      query += ' AND is_active = 1';
+    }
+
     query += ' ORDER BY name ASC';
-    return db.prepare(query).all() as Project[];
+    return db.prepare(query).all(...params) as Project[];
   }
 
-  async getProject(id: number): Promise<Project | null> {
+  async getProject(userId: string | null, id: number): Promise<Project | null> {
     const db = getDb();
-    return (db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as Project) || null;
+    let query = 'SELECT * FROM projects WHERE id = ?';
+    const params: (string | number)[] = [id];
+
+    if (userId !== null) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    } else {
+      query += ' AND user_id IS NULL';
+    }
+
+    return (db.prepare(query).get(...params) as Project) || null;
   }
 
-  async getProjectByPath(path: string): Promise<Project | null> {
+  async getProjectByPath(userId: string | null, path: string): Promise<Project | null> {
     const db = getDb();
-    return (db.prepare('SELECT * FROM projects WHERE path = ?').get(path) as Project) || null;
+    let query = 'SELECT * FROM projects WHERE path = ?';
+    const params: (string)[] = [path];
+
+    if (userId !== null) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    } else {
+      query += ' AND user_id IS NULL';
+    }
+
+    return (db.prepare(query).get(...params) as Project) || null;
   }
 
-  async createProject(data: CreateProjectData): Promise<Project> {
+  async createProject(userId: string | null, data: CreateProjectData): Promise<Project> {
     const db = getDb();
     const result = db.prepare(`
-      INSERT INTO projects (name, path, description) VALUES (?, ?, ?)
-    `).run(data.name, data.path, data.description || null);
+      INSERT INTO projects (user_id, name, path, description) VALUES (?, ?, ?, ?)
+    `).run(userId, data.name, data.path, data.description || null);
 
     return db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as Project;
   }
 
-  async updateProject(id: number, data: UpdateProjectData): Promise<Project | null> {
+  async updateProject(userId: string | null, id: number, data: UpdateProjectData): Promise<Project | null> {
     const db = getDb();
-    const existing = await this.getProject(id);
+    const existing = await this.getProject(userId, id);
     if (!existing) return null;
 
     const updates: string[] = [];
@@ -75,26 +119,39 @@ export class SQLiteStorage implements Storage {
     values.push(id);
 
     db.prepare(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-    return this.getProject(id);
+    return this.getProject(userId, id);
   }
 
-  async deleteProject(id: number): Promise<boolean> {
+  async deleteProject(userId: string | null, id: number): Promise<boolean> {
     const db = getDb();
+    // Ensure the project belongs to the user
+    const existing = await this.getProject(userId, id);
+    if (!existing) return false;
+
     const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
     return result.changes > 0;
   }
 
   // Tickets
-  async getTickets(filters?: TicketFilters): Promise<TicketWithTags[]> {
+  async getTickets(userId: string | null, filters?: TicketFilters): Promise<TicketWithTags[]> {
     const db = getDb();
 
     let query = `
       SELECT DISTINCT t.*
       FROM tickets t
       LEFT JOIN ticket_tags tt ON t.id = tt.ticket_id
+      LEFT JOIN projects p ON t.project_id = p.id
       WHERE 1=1
     `;
     const params: (string | number)[] = [];
+
+    // Filter by user: tickets must belong to user's projects or have no project (in single-user mode)
+    if (userId !== null) {
+      query += ' AND (p.user_id = ? OR t.project_id IS NULL)';
+      params.push(userId);
+    } else {
+      query += ' AND (p.user_id IS NULL OR t.project_id IS NULL)';
+    }
 
     if (filters?.project_id) {
       query += ' AND t.project_id = ?';
@@ -129,14 +186,22 @@ export class SQLiteStorage implements Storage {
     });
   }
 
-  async getTicket(id: number): Promise<TicketWithTags | null> {
+  async getTicket(userId: string | null, id: number): Promise<TicketWithTags | null> {
     const db = getDb();
-    return getTicketWithTags(db, id);
+    return getTicketWithTags(db, userId, id);
   }
 
-  async createTicket(data: CreateTicketData): Promise<TicketWithTags> {
+  async createTicket(userId: string | null, data: CreateTicketData): Promise<TicketWithTags> {
     const db = getDb();
     const status = data.status || 'backlog';
+
+    // Verify project belongs to user if project_id is provided
+    if (data.project_id && userId !== null) {
+      const project = await this.getProject(userId, data.project_id);
+      if (!project) {
+        throw new Error('Project not found or access denied');
+      }
+    }
 
     const maxPos = db.prepare(`
       SELECT COALESCE(MAX(position), -1) as max_pos FROM tickets WHERE status = ?
@@ -165,13 +230,21 @@ export class SQLiteStorage implements Storage {
       }
     }
 
-    return getTicketWithTags(db, ticketId)!;
+    return getTicketWithTags(db, userId, ticketId)!;
   }
 
-  async updateTicket(id: number, data: UpdateTicketData): Promise<TicketWithTags | null> {
+  async updateTicket(userId: string | null, id: number, data: UpdateTicketData): Promise<TicketWithTags | null> {
     const db = getDb();
-    const existing = await this.getTicket(id);
+    const existing = await this.getTicket(userId, id);
     if (!existing) return null;
+
+    // Verify new project belongs to user if changing project_id
+    if (data.project_id !== undefined && data.project_id !== null && userId !== null) {
+      const project = await this.getProject(userId, data.project_id);
+      if (!project) {
+        throw new Error('Project not found or access denied');
+      }
+    }
 
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
@@ -201,17 +274,25 @@ export class SQLiteStorage implements Storage {
       }
     }
 
-    return getTicketWithTags(db, id);
+    return getTicketWithTags(db, userId, id);
   }
 
-  async deleteTicket(id: number): Promise<boolean> {
+  async deleteTicket(userId: string | null, id: number): Promise<boolean> {
     const db = getDb();
+    // Verify ticket belongs to user
+    const existing = await this.getTicket(userId, id);
+    if (!existing) return false;
+
     const result = db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
     return result.changes > 0;
   }
 
-  async reorderTicket(ticketId: number, newStatus: TicketStatus, newPosition: number): Promise<boolean> {
+  async reorderTicket(userId: string | null, ticketId: number, newStatus: TicketStatus, newPosition: number): Promise<boolean> {
     const db = getDb();
+
+    // Verify ticket belongs to user
+    const existing = await this.getTicket(userId, ticketId);
+    if (!existing) return false;
 
     const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId) as {
       id: number;
@@ -260,19 +341,45 @@ export class SQLiteStorage implements Storage {
   }
 
   // Tags
-  async getTags(): Promise<Tag[]> {
+  async getTags(userId: string | null): Promise<Tag[]> {
     const db = getDb();
-    return db.prepare('SELECT * FROM tags ORDER BY name ASC').all() as Tag[];
+    let query = 'SELECT * FROM tags WHERE 1=1';
+    const params: (string)[] = [];
+
+    if (userId !== null) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    } else {
+      query += ' AND user_id IS NULL';
+    }
+
+    query += ' ORDER BY name ASC';
+    return db.prepare(query).all(...params) as Tag[];
   }
 
-  async createTag(name: string, color = '#6b7280'): Promise<Tag> {
+  async createTag(userId: string | null, name: string, color = '#6b7280'): Promise<Tag> {
     const db = getDb();
-    const result = db.prepare('INSERT INTO tags (name, color) VALUES (?, ?)').run(name.toLowerCase(), color);
+    const result = db.prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)').run(userId, name.toLowerCase(), color);
     return db.prepare('SELECT * FROM tags WHERE id = ?').get(result.lastInsertRowid) as Tag;
   }
 
-  async deleteTag(id: number): Promise<boolean> {
+  async deleteTag(userId: string | null, id: number): Promise<boolean> {
     const db = getDb();
+
+    // Verify tag belongs to user
+    let query = 'SELECT * FROM tags WHERE id = ?';
+    const params: (string | number)[] = [id];
+
+    if (userId !== null) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    } else {
+      query += ' AND user_id IS NULL';
+    }
+
+    const tag = db.prepare(query).get(...params);
+    if (!tag) return false;
+
     const result = db.prepare('DELETE FROM tags WHERE id = ?').run(id);
     return result.changes > 0;
   }

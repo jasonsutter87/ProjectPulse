@@ -33,6 +33,7 @@ interface ImportResult {
 }
 
 export async function importScanResult(
+  userId: string | null,
   result: ScanResult,
   createProject: boolean = true
 ): Promise<ImportResult> {
@@ -42,7 +43,7 @@ export async function importScanResult(
 
   if (createProject) {
     // Check if project already exists
-    const existing = await storage.getProjectByPath(result.path);
+    const existing = await storage.getProjectByPath(userId, result.path);
 
     if (existing) {
       projectId = existing.id;
@@ -51,7 +52,7 @@ export async function importScanResult(
       const projectName = getProjectName(result.path);
       const techDescription = result.tech_stacks.map((t) => t.name).join(', ');
 
-      const project = await storage.createProject({
+      const project = await storage.createProject(userId, {
         name: projectName,
         path: result.path,
         description: techDescription || undefined,
@@ -62,7 +63,7 @@ export async function importScanResult(
   }
 
   // Get tags for mapping
-  const tags = await storage.getTags();
+  const tags = await storage.getTags(userId);
   const tagMap = new Map(tags.map((t) => [t.name, t.id]));
 
   let ticketsCreated = 0;
@@ -74,7 +75,7 @@ export async function importScanResult(
       .map((tagName) => tagMap.get(tagName))
       .filter((id): id is number => id !== undefined);
 
-    await storage.createTicket({
+    await storage.createTicket(userId, {
       title: todo.title,
       description: todo.description,
       project_id: projectId || null,

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from '@/lib/storage';
+import { getUserId } from '@/lib/auth';
 
 // GET /api/tags - List all tags
 export async function GET() {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
-    const tags = await storage.getTags();
+    const tags = await storage.getTags(userId);
     return NextResponse.json(tags);
   } catch (error) {
     console.error('Failed to fetch tags:', error);
@@ -19,6 +21,7 @@ export async function GET() {
 // POST /api/tags - Create a new tag
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
     const body = await request.json();
 
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tag = await storage.createTag(body.name, body.color);
+    const tag = await storage.createTag(userId, body.name, body.color);
     return NextResponse.json(tag, { status: 201 });
   } catch (error: unknown) {
     console.error('Failed to create tag:', error);

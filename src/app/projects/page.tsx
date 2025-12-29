@@ -17,6 +17,7 @@ import {
 import { Project } from '@/types';
 import { ScanResult } from '@/lib/scanner';
 import { ArrowLeft, FolderSearch, FolderOpen, Plus, Trash2, RefreshCw, Check, X, ChevronRight, Home } from 'lucide-react';
+import { UserButton } from '@/components/user-button';
 
 interface BrowseResult {
   current: string;
@@ -181,10 +182,13 @@ export default function ProjectsPage() {
               <p className="text-gray-500 text-xs sm:text-sm hidden sm:block">Manage your projects and scan new ones</p>
             </div>
           </div>
-          <Button onClick={() => setScanModalOpen(true)} size="sm" className="sm:h-10 sm:px-4 flex-shrink-0">
-            <FolderSearch size={16} className="sm:mr-2" />
-            <span className="hidden sm:inline">Scan Project</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setScanModalOpen(true)} size="sm" className="sm:h-10 sm:px-4 flex-shrink-0">
+              <FolderSearch size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">Scan Project</span>
+            </Button>
+            <UserButton />
+          </div>
         </header>
 
         {loading ? (

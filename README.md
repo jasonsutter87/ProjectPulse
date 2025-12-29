@@ -2,6 +2,8 @@
 
 A scrum board web app with an AI agent for managing multiple projects.
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/YOUR_USERNAME/ProjectPulse)
+
 ## Features
 
 - **Kanban Board** - Drag-and-drop tickets between Backlog, In Progress, Review, and Done
@@ -26,6 +28,62 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+## Self-Hosting
+
+ProjectPulse can be self-hosted with optional multi-user authentication.
+
+### Option 1: Single-User Mode (No Auth)
+
+Perfect for personal use or internal teams.
+
+1. **Deploy to Netlify** using the button above (or your preferred host)
+2. Set environment variables:
+   ```
+   DISABLE_AUTH=true
+   NEXT_PUBLIC_DISABLE_AUTH=true
+   ```
+3. That's it! All data is stored in your own Netlify Blobs.
+
+### Option 2: Multi-User Mode (With Clerk Auth)
+
+Enable authentication so multiple users can have their own isolated data.
+
+1. **Create a Clerk account** at [clerk.com](https://clerk.com)
+2. Create a new application in the Clerk dashboard
+3. **Deploy to Netlify** and set environment variables:
+   ```
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
+   CLERK_SECRET_KEY=sk_live_...
+   DISABLE_AUTH=false
+   NEXT_PUBLIC_DISABLE_AUTH=false
+   ```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | For auth | Clerk publishable key |
+| `CLERK_SECRET_KEY` | For auth | Clerk secret key |
+| `DISABLE_AUTH` | No | Set to `true` for single-user mode |
+| `NEXT_PUBLIC_DISABLE_AUTH` | No | Client-side auth flag (match DISABLE_AUTH) |
+| `DATABASE_PATH` | No | Custom SQLite path (local dev only) |
+
+### Local Development
+
+```bash
+# Copy environment template
+cp .env.example .env.local
+
+# For single-user mode, set:
+# DISABLE_AUTH=true
+# NEXT_PUBLIC_DISABLE_AUTH=true
+
+# For multi-user mode, add your Clerk keys
+
+npm install
+npm run dev
+```
 
 ## Claude Code Agent
 

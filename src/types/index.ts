@@ -2,6 +2,7 @@
 
 export interface Project {
   id: number;
+  user_id: string | null;
   name: string;
   path: string;
   description: string | null;
@@ -12,6 +13,7 @@ export interface Project {
 
 export interface Tag {
   id: number;
+  user_id: string | null;
   name: string;
   color: string;
 }

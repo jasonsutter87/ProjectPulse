@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from '@/lib/storage';
+import { getUserId } from '@/lib/auth';
 import { TicketStatus } from '@/types';
 
 interface ReorderRequest {
@@ -11,6 +12,7 @@ interface ReorderRequest {
 // POST /api/tickets/reorder - Reorder a ticket (drag & drop)
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
     const body: ReorderRequest = await request.json();
 
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const success = await storage.reorderTicket(ticket_id, new_status, new_position);
+    const success = await storage.reorderTicket(userId, ticket_id, new_status, new_position);
 
     if (!success) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });

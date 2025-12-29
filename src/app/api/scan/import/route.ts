@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { scanProject, ScanResult } from '@/lib/scanner';
+import { scanProject } from '@/lib/scanner';
+import { getUserId } from '@/lib/auth';
 import { importScanResult } from '../route';
 
 interface ImportRequest {
@@ -11,6 +12,7 @@ interface ImportRequest {
 // POST /api/scan/import - Scan and import a project with todos
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const body: ImportRequest = await request.json();
     const { path: projectPath, max_depth = 1, include_subprojects = false } = body;
 
@@ -25,14 +27,14 @@ export async function POST(request: NextRequest) {
     const scanResult = scanProject(projectPath, max_depth);
 
     // Import main project
-    const mainResult = await importScanResult(scanResult, true);
+    const mainResult = await importScanResult(userId, scanResult, true);
 
     const results = [mainResult];
 
     // Import subprojects if requested
     if (include_subprojects && scanResult.subprojects.length > 0) {
       for (const subproject of scanResult.subprojects) {
-        const subResult = await importScanResult(subproject, true);
+        const subResult = await importScanResult(userId, subproject, true);
         results.push(subResult);
       }
     }

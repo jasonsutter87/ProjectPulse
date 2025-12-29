@@ -43,24 +43,24 @@ export interface TicketFilters {
 }
 
 export interface Storage {
-  // Projects
-  getProjects(activeOnly?: boolean): Promise<Project[]>;
-  getProject(id: number): Promise<Project | null>;
-  createProject(data: CreateProjectData): Promise<Project>;
-  updateProject(id: number, data: UpdateProjectData): Promise<Project | null>;
-  deleteProject(id: number): Promise<boolean>;
-  getProjectByPath(path: string): Promise<Project | null>;
+  // Projects - userId is null when auth is disabled (single-user mode)
+  getProjects(userId: string | null, activeOnly?: boolean): Promise<Project[]>;
+  getProject(userId: string | null, id: number): Promise<Project | null>;
+  createProject(userId: string | null, data: CreateProjectData): Promise<Project>;
+  updateProject(userId: string | null, id: number, data: UpdateProjectData): Promise<Project | null>;
+  deleteProject(userId: string | null, id: number): Promise<boolean>;
+  getProjectByPath(userId: string | null, path: string): Promise<Project | null>;
 
-  // Tickets
-  getTickets(filters?: TicketFilters): Promise<TicketWithTags[]>;
-  getTicket(id: number): Promise<TicketWithTags | null>;
-  createTicket(data: CreateTicketData): Promise<TicketWithTags>;
-  updateTicket(id: number, data: UpdateTicketData): Promise<TicketWithTags | null>;
-  deleteTicket(id: number): Promise<boolean>;
-  reorderTicket(ticketId: number, newStatus: TicketStatus, newPosition: number): Promise<boolean>;
+  // Tickets - filtered by user's projects
+  getTickets(userId: string | null, filters?: TicketFilters): Promise<TicketWithTags[]>;
+  getTicket(userId: string | null, id: number): Promise<TicketWithTags | null>;
+  createTicket(userId: string | null, data: CreateTicketData): Promise<TicketWithTags>;
+  updateTicket(userId: string | null, id: number, data: UpdateTicketData): Promise<TicketWithTags | null>;
+  deleteTicket(userId: string | null, id: number): Promise<boolean>;
+  reorderTicket(userId: string | null, ticketId: number, newStatus: TicketStatus, newPosition: number): Promise<boolean>;
 
-  // Tags
-  getTags(): Promise<Tag[]>;
-  createTag(name: string, color?: string): Promise<Tag>;
-  deleteTag(id: number): Promise<boolean>;
+  // Tags - per-user tags
+  getTags(userId: string | null): Promise<Tag[]>;
+  createTag(userId: string | null, name: string, color?: string): Promise<Tag>;
+  deleteTag(userId: string | null, id: number): Promise<boolean>;
 }

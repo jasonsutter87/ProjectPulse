@@ -22,41 +22,53 @@ interface BlobData {
 }
 
 const STORE_NAME = 'projectpulse';
-const DATA_KEY = 'data';
 
-const DEFAULT_DATA: BlobData = {
-  projects: {},
-  tickets: {},
-  tags: {
-    1: { id: 1, name: 'dev', color: '#3b82f6' },
-    2: { id: 2, name: 'marketing', color: '#8b5cf6' },
-    3: { id: 3, name: 'seo', color: '#10b981' },
-    4: { id: 4, name: 'go-live', color: '#f59e0b' },
-    5: { id: 5, name: 'bug', color: '#ef4444' },
-    6: { id: 6, name: 'feature', color: '#06b6d4' },
-  },
-  counters: { projectId: 0, ticketId: 0, tagId: 6 },
-};
+function getDataKey(userId: string | null): string {
+  // Each user gets their own data key for isolation
+  if (userId) {
+    return `users/${userId}/data`;
+  }
+  // Single-user mode (auth disabled) uses the root data key
+  return 'data';
+}
+
+function getDefaultData(userId: string | null): BlobData {
+  return {
+    projects: {},
+    tickets: {},
+    tags: {
+      1: { id: 1, user_id: userId, name: 'dev', color: '#3b82f6' },
+      2: { id: 2, user_id: userId, name: 'marketing', color: '#8b5cf6' },
+      3: { id: 3, user_id: userId, name: 'seo', color: '#10b981' },
+      4: { id: 4, user_id: userId, name: 'go-live', color: '#f59e0b' },
+      5: { id: 5, user_id: userId, name: 'bug', color: '#ef4444' },
+      6: { id: 6, user_id: userId, name: 'feature', color: '#06b6d4' },
+    },
+    counters: { projectId: 0, ticketId: 0, tagId: 6 },
+  };
+}
 
 export class BlobStorage implements Storage {
-  private async getData(): Promise<BlobData> {
+  private async getData(userId: string | null): Promise<BlobData> {
     try {
       const store = getStore(STORE_NAME);
-      const data = await store.get(DATA_KEY, { type: 'json' });
-      return (data as BlobData) || { ...DEFAULT_DATA };
+      const dataKey = getDataKey(userId);
+      const data = await store.get(dataKey, { type: 'json' });
+      return (data as BlobData) || getDefaultData(userId);
     } catch {
-      return { ...DEFAULT_DATA };
+      return getDefaultData(userId);
     }
   }
 
-  private async saveData(data: BlobData): Promise<void> {
+  private async saveData(userId: string | null, data: BlobData): Promise<void> {
     const store = getStore(STORE_NAME);
-    await store.setJSON(DATA_KEY, data);
+    const dataKey = getDataKey(userId);
+    await store.setJSON(dataKey, data);
   }
 
   // Projects
-  async getProjects(activeOnly = false): Promise<Project[]> {
-    const data = await this.getData();
+  async getProjects(userId: string | null, activeOnly = false): Promise<Project[]> {
+    const data = await this.getData(userId);
     let projects = Object.values(data.projects);
     if (activeOnly) {
       projects = projects.filter((p) => p.is_active);
@@ -64,23 +76,24 @@ export class BlobStorage implements Storage {
     return projects.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async getProject(id: number): Promise<Project | null> {
-    const data = await this.getData();
+  async getProject(userId: string | null, id: number): Promise<Project | null> {
+    const data = await this.getData(userId);
     return data.projects[id] || null;
   }
 
-  async getProjectByPath(path: string): Promise<Project | null> {
-    const data = await this.getData();
+  async getProjectByPath(userId: string | null, path: string): Promise<Project | null> {
+    const data = await this.getData(userId);
     return Object.values(data.projects).find((p) => p.path === path) || null;
   }
 
-  async createProject(input: CreateProjectData): Promise<Project> {
-    const data = await this.getData();
+  async createProject(userId: string | null, input: CreateProjectData): Promise<Project> {
+    const data = await this.getData(userId);
     const id = ++data.counters.projectId;
     const now = new Date().toISOString();
 
     const project: Project = {
       id,
+      user_id: userId,
       name: input.name,
       path: input.path,
       description: input.description || null,
@@ -90,12 +103,12 @@ export class BlobStorage implements Storage {
     };
 
     data.projects[id] = project;
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return project;
   }
 
-  async updateProject(id: number, input: UpdateProjectData): Promise<Project | null> {
-    const data = await this.getData();
+  async updateProject(userId: string | null, id: number, input: UpdateProjectData): Promise<Project | null> {
+    const data = await this.getData(userId);
     const project = data.projects[id];
     if (!project) return null;
 
@@ -106,12 +119,12 @@ export class BlobStorage implements Storage {
     project.updated_at = new Date().toISOString();
 
     data.projects[id] = project;
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return project;
   }
 
-  async deleteProject(id: number): Promise<boolean> {
-    const data = await this.getData();
+  async deleteProject(userId: string | null, id: number): Promise<boolean> {
+    const data = await this.getData(userId);
     if (!data.projects[id]) return false;
 
     // Delete associated tickets
@@ -122,13 +135,13 @@ export class BlobStorage implements Storage {
     }
 
     delete data.projects[id];
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return true;
   }
 
   // Tickets
-  async getTickets(filters?: TicketFilters): Promise<TicketWithTags[]> {
-    const data = await this.getData();
+  async getTickets(userId: string | null, filters?: TicketFilters): Promise<TicketWithTags[]> {
+    const data = await this.getData(userId);
     let tickets = Object.values(data.tickets);
 
     if (filters?.project_id) {
@@ -153,8 +166,8 @@ export class BlobStorage implements Storage {
     });
   }
 
-  async getTicket(id: number): Promise<TicketWithTags | null> {
-    const data = await this.getData();
+  async getTicket(userId: string | null, id: number): Promise<TicketWithTags | null> {
+    const data = await this.getData(userId);
     const ticket = data.tickets[id];
     if (!ticket) return null;
 
@@ -164,11 +177,16 @@ export class BlobStorage implements Storage {
     };
   }
 
-  async createTicket(input: CreateTicketData): Promise<TicketWithTags> {
-    const data = await this.getData();
+  async createTicket(userId: string | null, input: CreateTicketData): Promise<TicketWithTags> {
+    const data = await this.getData(userId);
     const id = ++data.counters.ticketId;
     const now = new Date().toISOString();
     const status = input.status || 'backlog';
+
+    // Verify project belongs to user if project_id is provided
+    if (input.project_id && !data.projects[input.project_id]) {
+      throw new Error('Project not found or access denied');
+    }
 
     // Calculate position
     const sameStatusTickets = Object.values(data.tickets).filter((t) => t.status === status);
@@ -196,14 +214,19 @@ export class BlobStorage implements Storage {
     };
 
     data.tickets[id] = ticket;
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return ticket;
   }
 
-  async updateTicket(id: number, input: UpdateTicketData): Promise<TicketWithTags | null> {
-    const data = await this.getData();
+  async updateTicket(userId: string | null, id: number, input: UpdateTicketData): Promise<TicketWithTags | null> {
+    const data = await this.getData(userId);
     const ticket = data.tickets[id];
     if (!ticket) return null;
+
+    // Verify new project belongs to user if changing project_id
+    if (input.project_id !== undefined && input.project_id !== null && !data.projects[input.project_id]) {
+      throw new Error('Project not found or access denied');
+    }
 
     if (input.title !== undefined) ticket.title = input.title;
     if (input.description !== undefined) ticket.description = input.description;
@@ -221,21 +244,21 @@ export class BlobStorage implements Storage {
     ticket.project = ticket.project_id ? data.projects[ticket.project_id] || null : null;
 
     data.tickets[id] = ticket;
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return ticket;
   }
 
-  async deleteTicket(id: number): Promise<boolean> {
-    const data = await this.getData();
+  async deleteTicket(userId: string | null, id: number): Promise<boolean> {
+    const data = await this.getData(userId);
     if (!data.tickets[id]) return false;
 
     delete data.tickets[id];
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return true;
   }
 
-  async reorderTicket(ticketId: number, newStatus: TicketStatus, newPosition: number): Promise<boolean> {
-    const data = await this.getData();
+  async reorderTicket(userId: string | null, ticketId: number, newStatus: TicketStatus, newPosition: number): Promise<boolean> {
+    const data = await this.getData(userId);
     const ticket = data.tickets[ticketId];
     if (!ticket) return false;
 
@@ -266,28 +289,28 @@ export class BlobStorage implements Storage {
     ticket.position = newPosition;
     ticket.updated_at = new Date().toISOString();
 
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return true;
   }
 
   // Tags
-  async getTags(): Promise<Tag[]> {
-    const data = await this.getData();
+  async getTags(userId: string | null): Promise<Tag[]> {
+    const data = await this.getData(userId);
     return Object.values(data.tags).sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async createTag(name: string, color = '#6b7280'): Promise<Tag> {
-    const data = await this.getData();
+  async createTag(userId: string | null, name: string, color = '#6b7280'): Promise<Tag> {
+    const data = await this.getData(userId);
     const id = ++data.counters.tagId;
 
-    const tag: Tag = { id, name: name.toLowerCase(), color };
+    const tag: Tag = { id, user_id: userId, name: name.toLowerCase(), color };
     data.tags[id] = tag;
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return tag;
   }
 
-  async deleteTag(id: number): Promise<boolean> {
-    const data = await this.getData();
+  async deleteTag(userId: string | null, id: number): Promise<boolean> {
+    const data = await this.getData(userId);
     if (!data.tags[id]) return false;
 
     // Remove tag from all tickets
@@ -296,7 +319,7 @@ export class BlobStorage implements Storage {
     }
 
     delete data.tags[id];
-    await this.saveData(data);
+    await this.saveData(userId, data);
     return true;
   }
 }

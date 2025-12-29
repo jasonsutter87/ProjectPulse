@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from '@/lib/storage';
+import { getUserId } from '@/lib/auth';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -7,9 +8,10 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const userId = await getUserId();
     const storage = getStorage();
 
-    const deleted = await storage.deleteTag(parseInt(id));
+    const deleted = await storage.deleteTag(userId, parseInt(id));
 
     if (!deleted) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 });

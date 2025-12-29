@@ -15,18 +15,37 @@ export function getDb(): Database.Database {
 }
 
 function runMigrations(db: Database.Database) {
-  const columns = db.prepare("PRAGMA table_info(tickets)").all() as { name: string }[];
+  // Ticket migrations
+  const ticketColumns = db.prepare("PRAGMA table_info(tickets)").all() as { name: string }[];
 
   // Add due_date column if it doesn't exist
-  const hasDueDate = columns.some((col) => col.name === 'due_date');
+  const hasDueDate = ticketColumns.some((col) => col.name === 'due_date');
   if (!hasDueDate) {
     db.exec('ALTER TABLE tickets ADD COLUMN due_date TEXT');
   }
 
   // Add start_date column if it doesn't exist
-  const hasStartDate = columns.some((col) => col.name === 'start_date');
+  const hasStartDate = ticketColumns.some((col) => col.name === 'start_date');
   if (!hasStartDate) {
     db.exec('ALTER TABLE tickets ADD COLUMN start_date TEXT');
+  }
+
+  // Project migrations
+  const projectColumns = db.prepare("PRAGMA table_info(projects)").all() as { name: string }[];
+
+  // Add user_id column for multi-tenant support
+  const hasUserId = projectColumns.some((col) => col.name === 'user_id');
+  if (!hasUserId) {
+    db.exec('ALTER TABLE projects ADD COLUMN user_id TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id)');
+  }
+
+  // Tag migrations - add user_id for per-user tags
+  const tagColumns = db.prepare("PRAGMA table_info(tags)").all() as { name: string }[];
+  const tagHasUserId = tagColumns.some((col) => col.name === 'user_id');
+  if (!tagHasUserId) {
+    db.exec('ALTER TABLE tags ADD COLUMN user_id TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id)');
   }
 }
 
@@ -37,19 +56,23 @@ export function initializeSchema() {
     -- Projects table
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
       name TEXT NOT NULL,
-      path TEXT NOT NULL UNIQUE,
+      path TEXT NOT NULL,
       description TEXT,
       is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, path)
     );
 
     -- Tags table
     CREATE TABLE IF NOT EXISTS tags (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      color TEXT DEFAULT '#6b7280'
+      user_id TEXT,
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#6b7280',
+      UNIQUE(user_id, name)
     );
 
     -- Tickets table

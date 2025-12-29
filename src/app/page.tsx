@@ -7,6 +7,7 @@ import { GanttChart } from '@/components/gantt';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { FolderOpen, LayoutGrid, GanttChartSquare } from 'lucide-react';
+import { UserButton } from '@/components/user-button';
 import { TicketWithTags, Project, Tag, TicketStatus, TicketPriority } from '@/types';
 import { TicketModal } from '@/components/board/TicketModal';
 import { useEffect, useCallback } from 'react';
@@ -117,6 +118,8 @@ export default function Home() {
                 <span className="hidden sm:inline">Projects</span>
               </Button>
             </Link>
+
+            <UserButton />
           </div>
         </header>
 

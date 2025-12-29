@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from '@/lib/storage';
+import { getUserId } from '@/lib/auth';
 import { TicketStatus } from '@/types';
 
 // GET /api/tickets - List all tickets with optional filters
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
     const { searchParams } = new URL(request.url);
 
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const tagId = searchParams.get('tag_id');
 
-    const tickets = await storage.getTickets({
+    const tickets = await storage.getTickets(userId, {
       project_id: projectId ? parseInt(projectId) : undefined,
       status: status as TicketStatus | undefined,
       tag_id: tagId ? parseInt(tagId) : undefined,
@@ -31,6 +33,7 @@ export async function GET(request: NextRequest) {
 // POST /api/tickets - Create a new ticket
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
     const storage = getStorage();
     const body = await request.json();
 
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ticket = await storage.createTicket({
+    const ticket = await storage.createTicket(userId, {
       title: body.title,
       description: body.description,
       project_id: body.project_id,
