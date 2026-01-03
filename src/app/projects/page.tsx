@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Project } from '@/types';
 import { ScanResult } from '@/lib/scanner';
-import { ArrowLeft, FolderSearch, FolderOpen, Plus, Trash2, RefreshCw, Check, X, ChevronRight, Home } from 'lucide-react';
+import { ArrowLeft, FolderSearch, FolderOpen, Plus, Trash2, RefreshCw, Check, X, ChevronRight, Home, Github } from 'lucide-react';
 import { UserButton } from '@/components/user-button';
 
 interface BrowseResult {
@@ -36,6 +36,7 @@ export default function ProjectsPage() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ projects_imported: number; tickets_created: number } | null>(null);
+  const [scanMode, setScanMode] = useState<'github' | 'local'>('github'); // Default to GitHub for deployed version
 
   // Browse state
   const [showBrowser, setShowBrowser] = useState(false);
@@ -93,10 +94,15 @@ export default function ProjectsPage() {
     setImportResult(null);
 
     try {
-      const res = await fetch('/api/scan', {
+      const endpoint = scanMode === 'github' ? '/api/scan/github' : '/api/scan';
+      const body = scanMode === 'github'
+        ? { repo_url: scanPath.trim() }
+        : { path: scanPath.trim(), max_depth: 1 };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: scanPath.trim(), max_depth: 1 }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -120,14 +126,15 @@ export default function ProjectsPage() {
 
     setImporting(true);
     try {
-      const res = await fetch('/api/scan/import', {
+      const endpoint = scanMode === 'github' ? '/api/scan/github/import' : '/api/scan/import';
+      const body = scanMode === 'github'
+        ? { repo_url: scanPath.trim() }
+        : { path: scanPath.trim(), max_depth: 1, include_subprojects: includeSubprojects };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: scanPath.trim(),
-          max_depth: 1,
-          include_subprojects: includeSubprojects,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -137,7 +144,7 @@ export default function ProjectsPage() {
       }
 
       const result = await res.json();
-      setImportResult(result);
+      setImportResult({ projects_imported: 1, tickets_created: result.tickets_created });
       fetchProjects();
     } catch (error) {
       console.error('Import failed:', error);
@@ -165,6 +172,7 @@ export default function ProjectsPage() {
     setImportResult(null);
     setShowBrowser(false);
     setBrowseData(null);
+    setScanMode('github');
   };
 
   return (
@@ -256,24 +264,54 @@ export default function ProjectsPage() {
             <div className="space-y-4 py-4 overflow-y-auto flex-1">
               {!showBrowser ? (
                 <>
+                  {/* Mode Toggle */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant={scanMode === 'github' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => { setScanMode('github'); setScanPath(''); setScanResult(null); }}
+                      className="flex-1"
+                    >
+                      <Github size={16} className="mr-2" />
+                      GitHub Repo
+                    </Button>
+                    <Button
+                      variant={scanMode === 'local' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => { setScanMode('local'); setScanPath(''); setScanResult(null); }}
+                      className="flex-1"
+                    >
+                      <FolderOpen size={16} className="mr-2" />
+                      Local Path
+                    </Button>
+                  </div>
+
                   <div>
-                    <label className="text-sm font-medium">Project Path</label>
+                    <label className="text-sm font-medium">
+                      {scanMode === 'github' ? 'GitHub Repository' : 'Project Path'}
+                    </label>
                     <div className="flex gap-2 mt-1">
                       <Input
                         value={scanPath}
                         onChange={(e) => setScanPath(e.target.value)}
-                        placeholder="/path/to/your/project"
+                        placeholder={scanMode === 'github'
+                          ? "https://github.com/owner/repo or owner/repo"
+                          : "/path/to/your/project"}
                         className="font-mono flex-1"
                       />
-                      <Button variant="outline" onClick={openBrowser}>
-                        <FolderOpen size={16} />
-                      </Button>
+                      {scanMode === 'local' && (
+                        <Button variant="outline" onClick={openBrowser}>
+                          <FolderOpen size={16} />
+                        </Button>
+                      )}
                       <Button onClick={handleScan} disabled={scanning || !scanPath.trim()}>
                         {scanning ? <RefreshCw className="animate-spin" size={16} /> : 'Scan'}
                       </Button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Enter path or click folder icon to browse
+                      {scanMode === 'github'
+                        ? "Enter a GitHub repository URL or owner/repo format"
+                        : "Enter path or click folder icon to browse"}
                     </p>
                   </div>
 
@@ -328,7 +366,7 @@ export default function ProjectsPage() {
                         </div>
                       )}
 
-                      {scanResult.subprojects.length > 0 && (
+                      {scanMode === 'local' && scanResult.subprojects.length > 0 && (
                         <div>
                           <p className="text-sm font-medium mb-2">
                             Subprojects ({scanResult.subprojects.length})
@@ -458,7 +496,7 @@ export default function ProjectsPage() {
                     >
                       {importing ? 'Importing...' : 'Import Project'}
                     </Button>
-                    {scanResult.subprojects.length > 0 && (
+                    {scanMode === 'local' && scanResult.subprojects.length > 0 && (
                       <Button
                         variant="secondary"
                         onClick={() => handleImport(true)}
