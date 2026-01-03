@@ -31,9 +31,9 @@ Add hierarchical project management: Projects > Phases > Sprints > Tasks
 - [x] Create POST /api/sprints endpoint
 - [x] Create PATCH /api/sprints/[id] endpoint
 - [x] Create DELETE /api/sprints/[id] endpoint
-- [ ] Create POST /api/sprints/[id]/configure endpoint
-- [ ] Create POST /api/sprints/[id]/start endpoint
-- [ ] Create GET /api/sprints/[id]/status endpoint
+- [x] Create POST /api/sprints/[id]/configure endpoint
+- [x] Create POST /api/sprints/[id]/start endpoint
+- [x] Create GET /api/sprints/[id]/status endpoint
 - [x] Update /api/tickets to support phase_id filter
 - [x] Update /api/tickets to support sprint_id filter
 
@@ -46,11 +46,11 @@ Add hierarchical project management: Projects > Phases > Sprints > Tasks
 - [x] Update TicketModal to include phase/sprint fields
 
 ### UI Components - Orchestrator Dashboard
-- [ ] Create SprintConfigModal for repo/branch config
-- [ ] Create SprintProgressView for real-time status
-- [ ] Create SprintAgentStatus for agent pipeline visualization
-- [ ] Create SprintQualityGates for quality gate checklist
-- [ ] Add "Plan Next Sprint" button to board header
+- [x] Create SprintConfigModal for repo/branch config
+- [x] Create SprintProgressView for real-time status
+- [x] Create SprintAgentStatus for agent pipeline visualization
+- [x] Create SprintQualityGates for quality gate checklist
+- [x] Add "Plan Sprint" button to board header
 
 ### Sprint Orchestrator Agent
 - [ ] Create sprint-orchestrator.md agent definition

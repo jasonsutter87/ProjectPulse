@@ -20,8 +20,16 @@ import { PhaseSelector } from '@/components/phases/PhaseSelector';
 import { PhaseModal } from '@/components/phases/PhaseModal';
 import { SprintSelector } from '@/components/sprints/SprintSelector';
 import { SprintModal } from '@/components/sprints/SprintModal';
+import { SprintConfigModal } from '@/components/sprints/SprintConfigModal';
+import { SprintProgressView } from '@/components/sprints/SprintProgressView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -38,8 +46,9 @@ import {
   TicketPriority,
   PhaseStatus,
   SprintStatus,
+  SprintWithDetails,
 } from '@/types';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Rocket, Settings } from 'lucide-react';
 
 export function Board() {
   const [tickets, setTickets] = useState<TicketWithTags[]>([]);
@@ -64,6 +73,11 @@ export function Board() {
 
   // Sprint modal state
   const [sprintModalOpen, setSprintModalOpen] = useState(false);
+
+  // Sprint orchestrator state
+  const [selectedSprintDetails, setSelectedSprintDetails] = useState<SprintWithDetails | null>(null);
+  const [sprintConfigModalOpen, setSprintConfigModalOpen] = useState(false);
+  const [sprintProgressOpen, setSprintProgressOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -101,6 +115,26 @@ export function Board() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch sprint details when a sprint is selected
+  useEffect(() => {
+    async function fetchSprintDetails() {
+      if (filterSprint === null) {
+        setSelectedSprintDetails(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/sprints/${filterSprint}`);
+        if (res.ok) {
+          const sprint = await res.json();
+          setSelectedSprintDetails(sprint);
+        }
+      } catch (error) {
+        console.error('Failed to fetch sprint details:', error);
+      }
+    }
+    fetchSprintDetails();
+  }, [filterSprint]);
 
   // Reset phase/sprint filters when project changes
   const handleProjectChange = (value: string) => {
@@ -320,6 +354,30 @@ export function Board() {
     fetchData();
   };
 
+  // Sprint orchestrator handlers
+  const handleSprintConfigured = async () => {
+    // Refresh sprint details
+    if (filterSprint !== null) {
+      const res = await fetch(`/api/sprints/${filterSprint}`);
+      if (res.ok) {
+        const sprint = await res.json();
+        setSelectedSprintDetails(sprint);
+      }
+    }
+  };
+
+  const handleOpenSprintConfig = () => {
+    if (selectedSprintDetails) {
+      setSprintConfigModalOpen(true);
+    }
+  };
+
+  const handleOpenSprintProgress = () => {
+    if (selectedSprintDetails) {
+      setSprintProgressOpen(true);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -341,6 +399,38 @@ export function Board() {
           <Button variant="outline" size="icon" onClick={fetchData} className="h-9 w-9 sm:h-10 sm:w-10">
             <RefreshCw size={16} />
           </Button>
+
+          {/* Sprint Orchestrator Buttons */}
+          {selectedSprintDetails && (
+            <>
+              {selectedSprintDetails.orchestrator_status === 'idle' ? (
+                <Button
+                  onClick={handleOpenSprintConfig}
+                  size="sm"
+                  className="sm:h-10 bg-green-600 hover:bg-green-700"
+                >
+                  <Rocket size={16} className="mr-1" />
+                  <span className="hidden sm:inline">Plan Sprint</span>
+                  <span className="sm:hidden">Plan</span>
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleOpenSprintProgress}
+                  size="sm"
+                  variant={selectedSprintDetails.orchestrator_status === 'running' ? 'default' : 'outline'}
+                  className={selectedSprintDetails.orchestrator_status === 'running' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                >
+                  <Settings size={16} className={`mr-1 ${selectedSprintDetails.orchestrator_status === 'running' ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">
+                    {selectedSprintDetails.orchestrator_status === 'running' ? 'Running...' : 'Orchestrator'}
+                  </span>
+                  <span className="sm:hidden">
+                    {selectedSprintDetails.orchestrator_status === 'running' ? '...' : 'Orch'}
+                  </span>
+                </Button>
+              )}
+            </>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
@@ -462,6 +552,33 @@ export function Board() {
           phaseId={filterPhase}
           onSave={handleSaveSprint}
         />
+      )}
+
+      {/* Sprint Config Modal */}
+      {selectedSprintDetails && (
+        <SprintConfigModal
+          open={sprintConfigModalOpen}
+          onOpenChange={setSprintConfigModalOpen}
+          sprint={selectedSprintDetails}
+          onConfigured={handleSprintConfigured}
+        />
+      )}
+
+      {/* Sprint Progress Sheet */}
+      {selectedSprintDetails && (
+        <Sheet open={sprintProgressOpen} onOpenChange={setSprintProgressOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Sprint Orchestrator</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4">
+              <SprintProgressView
+                sprint={selectedSprintDetails}
+                onRefresh={handleSprintConfigured}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );
