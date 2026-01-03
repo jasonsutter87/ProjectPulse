@@ -53,7 +53,10 @@ Add hierarchical project management: Projects > Phases > Sprints > Tasks
 - [x] Add "Plan Sprint" button to board header
 
 ### Sprint Orchestrator Agent
-- [ ] Create sprint-orchestrator.md agent definition
+- [x] Create sprint-orchestrator.md agent definition
+- [x] Add checkpoint/resume API endpoints
+- [x] Add ORCHESTRATOR_API_KEY security
+- [x] Implement context-aware checkpointing
 - [ ] Implement orchestrator initialization stage
 - [ ] Implement Tech Lead evaluation stage
 - [ ] Implement parallel development coordination
@@ -68,8 +71,8 @@ Add hierarchical project management: Projects > Phases > Sprints > Tasks
 ---
 
 ## Phase 2: API Security (Pending)
-- [ ] Add API_SECRET_KEY environment variable
-- [ ] Create API key validation helper
+- [x] Add ORCHESTRATOR_API_KEY environment variable
+- [x] Create API key validation helper
 - [ ] Update getUserId to support API key auth
 - [ ] Add Clerk env vars to Netlify
 - [ ] Add Clerk env vars to Vercel
