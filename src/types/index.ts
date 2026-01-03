@@ -62,6 +62,29 @@ export interface PhaseWithSprints extends Phase {
 export type SprintStatus = 'planning' | 'active' | 'completed' | 'archived';
 export type OrchestratorStatus = 'idle' | 'initializing' | 'running' | 'paused' | 'completed' | 'failed';
 
+// Orchestrator step tracking (matches sprint-phase.md workflow)
+export type OrchestratorStep =
+  | 'branch'        // 1. Create sprint branch
+  | 'planning'      // 2. Tech Lead planning
+  | 'parallel_dev'  // 3. API Architect, Senior Dev, QA, Purple Team
+  | 'merge'         // 4. Merge all branches
+  | 'performance'   // 5. Performance audit
+  | 'docs'          // 6. Documentation
+  | 'janitor'       // 7. Code cleanup
+  | 'security'      // 8. Red Team + Black Team loop
+  | 'final';        // 9. Final review & merge
+
+// Checkpoint data structure for resumability
+export interface OrchestratorCheckpoint {
+  step: OrchestratorStep;
+  substep: string | null;  // e.g., 'senior_dev' during parallel_dev
+  context_tokens_used: number;
+  last_agent_output: string | null;
+  security_loop_count: number;
+  red_team_score: number | null;
+  blockers: string[];
+}
+
 export interface Sprint {
   id: number;
   phase_id: number;
@@ -82,6 +105,11 @@ export interface Sprint {
   orchestrator_stage: string | null;
   orchestrator_progress: number;
   orchestrator_error: string | null;
+  // Checkpoint for resumability
+  current_step: OrchestratorStep | null;
+  current_substep: string | null;
+  checkpoint_data: string | null;  // JSON string of OrchestratorCheckpoint
+  last_checkpoint_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -217,6 +245,16 @@ export interface UpdateSprintRequest {
   target_repo_path?: string | null;
   target_repo_url?: string | null;
   base_branch?: string;
+  // Orchestrator state updates
+  orchestrator_status?: OrchestratorStatus;
+  orchestrator_stage?: string | null;
+  orchestrator_progress?: number;
+  orchestrator_error?: string | null;
+  // Checkpoint updates
+  current_step?: OrchestratorStep | null;
+  current_substep?: string | null;
+  checkpoint_data?: string | null;
+  last_checkpoint_at?: string | null;
 }
 
 // Orchestrator request types

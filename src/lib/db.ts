@@ -60,6 +60,29 @@ function runMigrations(db: Database.Database) {
     db.exec('ALTER TABLE tags ADD COLUMN user_id TEXT');
     db.exec('CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id)');
   }
+
+  // Sprint checkpoint migrations - for orchestrator resumability
+  const sprintColumns = db.prepare("PRAGMA table_info(sprints)").all() as { name: string }[];
+
+  const hasCurrentStep = sprintColumns.some((col) => col.name === 'current_step');
+  if (!hasCurrentStep) {
+    db.exec("ALTER TABLE sprints ADD COLUMN current_step TEXT CHECK(current_step IN ('branch', 'planning', 'parallel_dev', 'merge', 'performance', 'docs', 'janitor', 'security', 'final'))");
+  }
+
+  const hasCurrentSubstep = sprintColumns.some((col) => col.name === 'current_substep');
+  if (!hasCurrentSubstep) {
+    db.exec('ALTER TABLE sprints ADD COLUMN current_substep TEXT');
+  }
+
+  const hasCheckpointData = sprintColumns.some((col) => col.name === 'checkpoint_data');
+  if (!hasCheckpointData) {
+    db.exec('ALTER TABLE sprints ADD COLUMN checkpoint_data TEXT');  // JSON blob
+  }
+
+  const hasLastCheckpointAt = sprintColumns.some((col) => col.name === 'last_checkpoint_at');
+  if (!hasLastCheckpointAt) {
+    db.exec('ALTER TABLE sprints ADD COLUMN last_checkpoint_at TEXT');
+  }
 }
 
 export function initializeSchema() {

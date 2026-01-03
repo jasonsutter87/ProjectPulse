@@ -36,3 +36,50 @@ export async function requireAuth(): Promise<string> {
     throw new Error('Unauthorized');
   }
 }
+
+// ===========================================
+// ORCHESTRATOR API KEY SECURITY
+// ===========================================
+// These endpoints are accessed by Claude agents and need extra protection
+
+const ORCHESTRATOR_API_KEY = process.env.ORCHESTRATOR_API_KEY;
+
+/**
+ * Validate orchestrator API key from request headers
+ * Requires: Authorization: Bearer <ORCHESTRATOR_API_KEY>
+ */
+export function validateOrchestratorApiKey(authHeader: string | null): boolean {
+  if (!ORCHESTRATOR_API_KEY) {
+    // If no key configured, orchestrator endpoints are disabled
+    console.warn('ORCHESTRATOR_API_KEY not configured - orchestrator endpoints disabled');
+    return false;
+  }
+
+  if (!authHeader) {
+    return false;
+  }
+
+  const [type, key] = authHeader.split(' ');
+  if (type !== 'Bearer' || !key) {
+    return false;
+  }
+
+  // Constant-time comparison to prevent timing attacks
+  if (key.length !== ORCHESTRATOR_API_KEY.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let i = 0; i < key.length; i++) {
+    result |= key.charCodeAt(i) ^ ORCHESTRATOR_API_KEY.charCodeAt(i);
+  }
+
+  return result === 0;
+}
+
+/**
+ * Check if orchestrator is configured and available
+ */
+export function isOrchestratorConfigured(): boolean {
+  return !!ORCHESTRATOR_API_KEY;
+}

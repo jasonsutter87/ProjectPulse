@@ -649,6 +649,11 @@ export class BlobStorage implements Storage {
       orchestrator_stage: null,
       orchestrator_progress: 0,
       orchestrator_error: null,
+      // Checkpoint fields
+      current_step: null,
+      current_substep: null,
+      checkpoint_data: null,
+      last_checkpoint_at: null,
       created_at: now,
       updated_at: now,
     };
@@ -686,6 +691,11 @@ export class BlobStorage implements Storage {
     if (input.orchestrator_stage !== undefined) sprint.orchestrator_stage = input.orchestrator_stage;
     if (input.orchestrator_progress !== undefined) sprint.orchestrator_progress = input.orchestrator_progress;
     if (input.orchestrator_error !== undefined) sprint.orchestrator_error = input.orchestrator_error;
+    // Checkpoint fields for resumability
+    if (input.current_step !== undefined) sprint.current_step = input.current_step;
+    if (input.current_substep !== undefined) sprint.current_substep = input.current_substep;
+    if (input.checkpoint_data !== undefined) sprint.checkpoint_data = input.checkpoint_data;
+    if (input.last_checkpoint_at !== undefined) sprint.last_checkpoint_at = input.last_checkpoint_at;
     sprint.updated_at = new Date().toISOString();
 
     data.sprints[id] = sprint;

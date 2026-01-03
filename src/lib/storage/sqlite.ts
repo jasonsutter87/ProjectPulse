@@ -651,6 +651,11 @@ export class SQLiteStorage implements Storage {
     if (data.orchestrator_stage !== undefined) { updates.push('orchestrator_stage = ?'); values.push(data.orchestrator_stage); }
     if (data.orchestrator_progress !== undefined) { updates.push('orchestrator_progress = ?'); values.push(data.orchestrator_progress); }
     if (data.orchestrator_error !== undefined) { updates.push('orchestrator_error = ?'); values.push(data.orchestrator_error); }
+    // Checkpoint fields for resumability
+    if (data.current_step !== undefined) { updates.push('current_step = ?'); values.push(data.current_step); }
+    if (data.current_substep !== undefined) { updates.push('current_substep = ?'); values.push(data.current_substep); }
+    if (data.checkpoint_data !== undefined) { updates.push('checkpoint_data = ?'); values.push(data.checkpoint_data); }
+    if (data.last_checkpoint_at !== undefined) { updates.push('last_checkpoint_at = ?'); values.push(data.last_checkpoint_at); }
 
     if (updates.length === 0) return existing;
 

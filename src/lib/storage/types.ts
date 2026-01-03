@@ -11,6 +11,7 @@ import {
   SprintWithDetails,
   SprintStatus,
   OrchestratorStatus,
+  OrchestratorStep,
   AgentRun,
   AgentType,
   AgentRunStatus,
@@ -113,6 +114,11 @@ export interface UpdateSprintData {
   orchestrator_stage?: string | null;
   orchestrator_progress?: number;
   orchestrator_error?: string | null;
+  // Checkpoint fields for resumability
+  current_step?: OrchestratorStep | null;
+  current_substep?: string | null;
+  checkpoint_data?: string | null;
+  last_checkpoint_at?: string | null;
 }
 
 // Agent run data interfaces
