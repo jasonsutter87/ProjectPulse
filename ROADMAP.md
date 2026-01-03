@@ -5,37 +5,37 @@
 Add hierarchical project management: Projects > Phases > Sprints > Tasks
 
 ### Database & Types
-- [ ] Add Phase type definitions to `src/types/index.ts`
-- [ ] Add Sprint type definitions to `src/types/index.ts`
-- [ ] Add AgentRun and QualityGate types to `src/types/index.ts`
-- [ ] Create phases table in `src/lib/db.ts`
-- [ ] Create sprints table in `src/lib/db.ts`
-- [ ] Create sprint_agent_runs table in `src/lib/db.ts`
-- [ ] Create sprint_quality_gates table in `src/lib/db.ts`
-- [ ] Add phase_id and sprint_id columns to tickets table
-- [ ] Extend Storage interface with phase methods
-- [ ] Extend Storage interface with sprint methods
-- [ ] Implement phase methods in SQLite storage
-- [ ] Implement sprint methods in SQLite storage
-- [ ] Implement phase methods in Netlify Blob storage
-- [ ] Implement sprint methods in Netlify Blob storage
-- [ ] Implement phase methods in Vercel Blob storage
-- [ ] Implement sprint methods in Vercel Blob storage
+- [x] Add Phase type definitions to `src/types/index.ts`
+- [x] Add Sprint type definitions to `src/types/index.ts`
+- [x] Add AgentRun and QualityGate types to `src/types/index.ts`
+- [x] Create phases table in `src/lib/db.ts`
+- [x] Create sprints table in `src/lib/db.ts`
+- [x] Create sprint_agent_runs table in `src/lib/db.ts`
+- [x] Create sprint_quality_gates table in `src/lib/db.ts`
+- [x] Add phase_id and sprint_id columns to tickets table
+- [x] Extend Storage interface with phase methods
+- [x] Extend Storage interface with sprint methods
+- [x] Implement phase methods in SQLite storage
+- [x] Implement sprint methods in SQLite storage
+- [x] Implement phase methods in Netlify Blob storage
+- [x] Implement sprint methods in Netlify Blob storage
+- [x] Implement phase methods in Vercel Blob storage
+- [x] Implement sprint methods in Vercel Blob storage
 
 ### API Routes
-- [ ] Create GET /api/phases endpoint
-- [ ] Create POST /api/phases endpoint
-- [ ] Create PATCH /api/phases/[id] endpoint
-- [ ] Create DELETE /api/phases/[id] endpoint
-- [ ] Create GET /api/sprints endpoint
-- [ ] Create POST /api/sprints endpoint
-- [ ] Create PATCH /api/sprints/[id] endpoint
-- [ ] Create DELETE /api/sprints/[id] endpoint
+- [x] Create GET /api/phases endpoint
+- [x] Create POST /api/phases endpoint
+- [x] Create PATCH /api/phases/[id] endpoint
+- [x] Create DELETE /api/phases/[id] endpoint
+- [x] Create GET /api/sprints endpoint
+- [x] Create POST /api/sprints endpoint
+- [x] Create PATCH /api/sprints/[id] endpoint
+- [x] Create DELETE /api/sprints/[id] endpoint
 - [ ] Create POST /api/sprints/[id]/configure endpoint
 - [ ] Create POST /api/sprints/[id]/start endpoint
 - [ ] Create GET /api/sprints/[id]/status endpoint
-- [ ] Update /api/tickets to support phase_id filter
-- [ ] Update /api/tickets to support sprint_id filter
+- [x] Update /api/tickets to support phase_id filter
+- [x] Update /api/tickets to support sprint_id filter
 
 ### UI Components - Phase/Sprint Selection
 - [ ] Create PhaseSelector component

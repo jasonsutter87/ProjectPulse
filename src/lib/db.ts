@@ -30,6 +30,19 @@ function runMigrations(db: Database.Database) {
     db.exec('ALTER TABLE tickets ADD COLUMN start_date TEXT');
   }
 
+  // Add phase_id and sprint_id to tickets
+  const hasPhaseId = ticketColumns.some((col) => col.name === 'phase_id');
+  if (!hasPhaseId) {
+    db.exec('ALTER TABLE tickets ADD COLUMN phase_id INTEGER REFERENCES phases(id) ON DELETE SET NULL');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tickets_phase ON tickets(phase_id)');
+  }
+
+  const hasSprintId = ticketColumns.some((col) => col.name === 'sprint_id');
+  if (!hasSprintId) {
+    db.exec('ALTER TABLE tickets ADD COLUMN sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tickets_sprint ON tickets(sprint_id)');
+  }
+
   // Project migrations
   const projectColumns = db.prepare("PRAGMA table_info(projects)").all() as { name: string }[];
 
@@ -102,6 +115,81 @@ export function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
     CREATE INDEX IF NOT EXISTS idx_ticket_tags_ticket ON ticket_tags(ticket_id);
     CREATE INDEX IF NOT EXISTS idx_ticket_tags_tag ON ticket_tags(tag_id);
+
+    -- Phases table
+    CREATE TABLE IF NOT EXISTS phases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      position INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'planning' CHECK(status IN ('planning', 'active', 'completed', 'archived')),
+      start_date TEXT,
+      end_date TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Sprints table
+    CREATE TABLE IF NOT EXISTS sprints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phase_id INTEGER NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      position INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'planning' CHECK(status IN ('planning', 'active', 'completed', 'archived')),
+      goal TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      target_repo_path TEXT,
+      target_repo_url TEXT,
+      base_branch TEXT DEFAULT 'main',
+      sprint_branch TEXT,
+      orchestrator_status TEXT DEFAULT 'idle' CHECK(orchestrator_status IN ('idle', 'initializing', 'running', 'paused', 'completed', 'failed')),
+      orchestrator_stage TEXT,
+      orchestrator_progress INTEGER DEFAULT 0,
+      orchestrator_error TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Sprint agent runs table
+    CREATE TABLE IF NOT EXISTS sprint_agent_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      agent_name TEXT NOT NULL,
+      agent_type TEXT NOT NULL CHECK(agent_type IN ('tech_lead', 'api_architect', 'senior_dev', 'qa', 'purple_team', 'performance', 'docs_writer', 'code_janitor', 'red_team', 'black_team')),
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed', 'skipped')),
+      branch_name TEXT,
+      started_at TEXT,
+      completed_at TEXT,
+      output_summary TEXT,
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Sprint quality gates table
+    CREATE TABLE IF NOT EXISTS sprint_quality_gates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      gate_name TEXT NOT NULL,
+      gate_type TEXT NOT NULL CHECK(gate_type IN ('automated', 'manual')),
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'passed', 'failed', 'skipped')),
+      score INTEGER,
+      max_score INTEGER,
+      passed_at TEXT,
+      details TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Phase and Sprint indexes
+    CREATE INDEX IF NOT EXISTS idx_phases_project ON phases(project_id);
+    CREATE INDEX IF NOT EXISTS idx_phases_status ON phases(status);
+    CREATE INDEX IF NOT EXISTS idx_sprints_phase ON sprints(phase_id);
+    CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status);
+    CREATE INDEX IF NOT EXISTS idx_sprints_orchestrator ON sprints(orchestrator_status);
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_sprint ON sprint_agent_runs(sprint_id);
+    CREATE INDEX IF NOT EXISTS idx_quality_gates_sprint ON sprint_quality_gates(sprint_id);
   `);
 
   // Run migrations for existing databases

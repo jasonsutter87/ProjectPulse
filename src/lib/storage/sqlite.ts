@@ -1,5 +1,17 @@
 import { getDb } from '@/lib/db';
-import { Project, Ticket, Tag, TicketWithTags, TicketStatus } from '@/types';
+import {
+  Project,
+  Ticket,
+  Tag,
+  TicketWithTags,
+  TicketStatus,
+  Phase,
+  PhaseWithSprints,
+  Sprint,
+  SprintWithDetails,
+  AgentRun,
+  QualityGate,
+} from '@/types';
 import {
   Storage,
   CreateProjectData,
@@ -7,6 +19,14 @@ import {
   CreateTicketData,
   UpdateTicketData,
   TicketFilters,
+  CreatePhaseData,
+  UpdatePhaseData,
+  CreateSprintData,
+  UpdateSprintData,
+  CreateAgentRunData,
+  UpdateAgentRunData,
+  CreateQualityGateData,
+  UpdateQualityGateData,
 } from './types';
 
 function getTicketWithTags(db: ReturnType<typeof getDb>, userId: string | null, ticketId: number): TicketWithTags | null {
@@ -157,6 +177,14 @@ export class SQLiteStorage implements Storage {
       query += ' AND t.project_id = ?';
       params.push(filters.project_id);
     }
+    if (filters?.phase_id) {
+      query += ' AND t.phase_id = ?';
+      params.push(filters.phase_id);
+    }
+    if (filters?.sprint_id) {
+      query += ' AND t.sprint_id = ?';
+      params.push(filters.sprint_id);
+    }
     if (filters?.status) {
       query += ' AND t.status = ?';
       params.push(filters.status);
@@ -208,12 +236,14 @@ export class SQLiteStorage implements Storage {
     `).get(status) as { max_pos: number };
 
     const result = db.prepare(`
-      INSERT INTO tickets (title, description, project_id, status, priority, position, start_date, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tickets (title, description, project_id, phase_id, sprint_id, status, priority, position, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.title,
       data.description || null,
       data.project_id || null,
+      data.phase_id || null,
+      data.sprint_id || null,
       status,
       data.priority || 0,
       maxPos.max_pos + 1,
@@ -252,6 +282,8 @@ export class SQLiteStorage implements Storage {
     if (data.title !== undefined) { updates.push('title = ?'); values.push(data.title); }
     if (data.description !== undefined) { updates.push('description = ?'); values.push(data.description); }
     if (data.project_id !== undefined) { updates.push('project_id = ?'); values.push(data.project_id); }
+    if (data.phase_id !== undefined) { updates.push('phase_id = ?'); values.push(data.phase_id); }
+    if (data.sprint_id !== undefined) { updates.push('sprint_id = ?'); values.push(data.sprint_id); }
     if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
     if (data.priority !== undefined) { updates.push('priority = ?'); values.push(data.priority); }
     if (data.position !== undefined) { updates.push('position = ?'); values.push(data.position); }
@@ -382,5 +414,389 @@ export class SQLiteStorage implements Storage {
 
     const result = db.prepare('DELETE FROM tags WHERE id = ?').run(id);
     return result.changes > 0;
+  }
+
+  // Phases
+  async getPhases(userId: string | null, projectId: number): Promise<PhaseWithSprints[]> {
+    const db = getDb();
+
+    // Verify project belongs to user
+    const project = await this.getProject(userId, projectId);
+    if (!project) return [];
+
+    const phases = db.prepare(`
+      SELECT * FROM phases WHERE project_id = ? ORDER BY position ASC, created_at ASC
+    `).all(projectId) as Phase[];
+
+    return phases.map((phase) => {
+      const sprints = db.prepare(`
+        SELECT * FROM sprints WHERE phase_id = ? ORDER BY position ASC, created_at ASC
+      `).all(phase.id) as Sprint[];
+
+      const ticketCount = db.prepare(`
+        SELECT COUNT(*) as count FROM tickets WHERE phase_id = ?
+      `).get(phase.id) as { count: number };
+
+      return { ...phase, sprints, ticket_count: ticketCount.count };
+    });
+  }
+
+  async getPhase(userId: string | null, id: number): Promise<PhaseWithSprints | null> {
+    const db = getDb();
+
+    const phase = db.prepare('SELECT * FROM phases WHERE id = ?').get(id) as Phase | undefined;
+    if (!phase) return null;
+
+    // Verify project belongs to user
+    const project = await this.getProject(userId, phase.project_id);
+    if (!project) return null;
+
+    const sprints = db.prepare(`
+      SELECT * FROM sprints WHERE phase_id = ? ORDER BY position ASC, created_at ASC
+    `).all(id) as Sprint[];
+
+    const ticketCount = db.prepare(`
+      SELECT COUNT(*) as count FROM tickets WHERE phase_id = ?
+    `).get(id) as { count: number };
+
+    return { ...phase, sprints, ticket_count: ticketCount.count };
+  }
+
+  async createPhase(userId: string | null, data: CreatePhaseData): Promise<Phase> {
+    const db = getDb();
+
+    // Verify project belongs to user
+    const project = await this.getProject(userId, data.project_id);
+    if (!project) {
+      throw new Error('Project not found or access denied');
+    }
+
+    const maxPos = db.prepare(`
+      SELECT COALESCE(MAX(position), -1) as max_pos FROM phases WHERE project_id = ?
+    `).get(data.project_id) as { max_pos: number };
+
+    const result = db.prepare(`
+      INSERT INTO phases (project_id, name, description, position, status, start_date, end_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.project_id,
+      data.name,
+      data.description || null,
+      maxPos.max_pos + 1,
+      data.status || 'planning',
+      data.start_date || null,
+      data.end_date || null
+    );
+
+    return db.prepare('SELECT * FROM phases WHERE id = ?').get(result.lastInsertRowid) as Phase;
+  }
+
+  async updatePhase(userId: string | null, id: number, data: UpdatePhaseData): Promise<Phase | null> {
+    const db = getDb();
+
+    const existing = await this.getPhase(userId, id);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.name !== undefined) { updates.push('name = ?'); values.push(data.name); }
+    if (data.description !== undefined) { updates.push('description = ?'); values.push(data.description); }
+    if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
+    if (data.position !== undefined) { updates.push('position = ?'); values.push(data.position); }
+    if (data.start_date !== undefined) { updates.push('start_date = ?'); values.push(data.start_date); }
+    if (data.end_date !== undefined) { updates.push('end_date = ?'); values.push(data.end_date); }
+
+    if (updates.length === 0) return existing;
+
+    updates.push("updated_at = datetime('now')");
+    values.push(id);
+
+    db.prepare(`UPDATE phases SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    return db.prepare('SELECT * FROM phases WHERE id = ?').get(id) as Phase;
+  }
+
+  async deletePhase(userId: string | null, id: number): Promise<boolean> {
+    const db = getDb();
+
+    const existing = await this.getPhase(userId, id);
+    if (!existing) return false;
+
+    const result = db.prepare('DELETE FROM phases WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
+
+  async reorderPhases(userId: string | null, projectId: number, phaseIds: number[]): Promise<boolean> {
+    const db = getDb();
+
+    // Verify project belongs to user
+    const project = await this.getProject(userId, projectId);
+    if (!project) return false;
+
+    const reorder = db.transaction(() => {
+      phaseIds.forEach((phaseId, index) => {
+        db.prepare('UPDATE phases SET position = ? WHERE id = ? AND project_id = ?').run(index, phaseId, projectId);
+      });
+    });
+
+    reorder();
+    return true;
+  }
+
+  // Sprints
+  async getSprints(userId: string | null, phaseId: number): Promise<SprintWithDetails[]> {
+    const db = getDb();
+
+    // Verify phase belongs to user's project
+    const phase = await this.getPhase(userId, phaseId);
+    if (!phase) return [];
+
+    const sprints = db.prepare(`
+      SELECT * FROM sprints WHERE phase_id = ? ORDER BY position ASC, created_at ASC
+    `).all(phaseId) as Sprint[];
+
+    return sprints.map((sprint) => {
+      const agentRuns = db.prepare(`
+        SELECT * FROM sprint_agent_runs WHERE sprint_id = ? ORDER BY created_at ASC
+      `).all(sprint.id) as AgentRun[];
+
+      const qualityGates = db.prepare(`
+        SELECT * FROM sprint_quality_gates WHERE sprint_id = ? ORDER BY created_at ASC
+      `).all(sprint.id) as QualityGate[];
+
+      const ticketCount = db.prepare(`
+        SELECT COUNT(*) as count FROM tickets WHERE sprint_id = ?
+      `).get(sprint.id) as { count: number };
+
+      return { ...sprint, phase, agent_runs: agentRuns, quality_gates: qualityGates, ticket_count: ticketCount.count };
+    });
+  }
+
+  async getSprint(userId: string | null, id: number): Promise<SprintWithDetails | null> {
+    const db = getDb();
+
+    const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(id) as Sprint | undefined;
+    if (!sprint) return null;
+
+    // Verify phase belongs to user's project
+    const phase = await this.getPhase(userId, sprint.phase_id);
+    if (!phase) return null;
+
+    const agentRuns = db.prepare(`
+      SELECT * FROM sprint_agent_runs WHERE sprint_id = ? ORDER BY created_at ASC
+    `).all(id) as AgentRun[];
+
+    const qualityGates = db.prepare(`
+      SELECT * FROM sprint_quality_gates WHERE sprint_id = ? ORDER BY created_at ASC
+    `).all(id) as QualityGate[];
+
+    const ticketCount = db.prepare(`
+      SELECT COUNT(*) as count FROM tickets WHERE sprint_id = ?
+    `).get(id) as { count: number };
+
+    return { ...sprint, phase, agent_runs: agentRuns, quality_gates: qualityGates, ticket_count: ticketCount.count };
+  }
+
+  async createSprint(userId: string | null, data: CreateSprintData): Promise<Sprint> {
+    const db = getDb();
+
+    // Verify phase belongs to user's project
+    const phase = await this.getPhase(userId, data.phase_id);
+    if (!phase) {
+      throw new Error('Phase not found or access denied');
+    }
+
+    const maxPos = db.prepare(`
+      SELECT COALESCE(MAX(position), -1) as max_pos FROM sprints WHERE phase_id = ?
+    `).get(data.phase_id) as { max_pos: number };
+
+    const result = db.prepare(`
+      INSERT INTO sprints (phase_id, name, description, goal, position, status, start_date, end_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.phase_id,
+      data.name,
+      data.description || null,
+      data.goal || null,
+      maxPos.max_pos + 1,
+      data.status || 'planning',
+      data.start_date || null,
+      data.end_date || null
+    );
+
+    return db.prepare('SELECT * FROM sprints WHERE id = ?').get(result.lastInsertRowid) as Sprint;
+  }
+
+  async updateSprint(userId: string | null, id: number, data: UpdateSprintData): Promise<Sprint | null> {
+    const db = getDb();
+
+    const existing = await this.getSprint(userId, id);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.name !== undefined) { updates.push('name = ?'); values.push(data.name); }
+    if (data.description !== undefined) { updates.push('description = ?'); values.push(data.description); }
+    if (data.goal !== undefined) { updates.push('goal = ?'); values.push(data.goal); }
+    if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
+    if (data.position !== undefined) { updates.push('position = ?'); values.push(data.position); }
+    if (data.start_date !== undefined) { updates.push('start_date = ?'); values.push(data.start_date); }
+    if (data.end_date !== undefined) { updates.push('end_date = ?'); values.push(data.end_date); }
+    if (data.target_repo_path !== undefined) { updates.push('target_repo_path = ?'); values.push(data.target_repo_path); }
+    if (data.target_repo_url !== undefined) { updates.push('target_repo_url = ?'); values.push(data.target_repo_url); }
+    if (data.base_branch !== undefined) { updates.push('base_branch = ?'); values.push(data.base_branch); }
+    if (data.sprint_branch !== undefined) { updates.push('sprint_branch = ?'); values.push(data.sprint_branch); }
+    if (data.orchestrator_status !== undefined) { updates.push('orchestrator_status = ?'); values.push(data.orchestrator_status); }
+    if (data.orchestrator_stage !== undefined) { updates.push('orchestrator_stage = ?'); values.push(data.orchestrator_stage); }
+    if (data.orchestrator_progress !== undefined) { updates.push('orchestrator_progress = ?'); values.push(data.orchestrator_progress); }
+    if (data.orchestrator_error !== undefined) { updates.push('orchestrator_error = ?'); values.push(data.orchestrator_error); }
+
+    if (updates.length === 0) return existing;
+
+    updates.push("updated_at = datetime('now')");
+    values.push(id);
+
+    db.prepare(`UPDATE sprints SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    return db.prepare('SELECT * FROM sprints WHERE id = ?').get(id) as Sprint;
+  }
+
+  async deleteSprint(userId: string | null, id: number): Promise<boolean> {
+    const db = getDb();
+
+    const existing = await this.getSprint(userId, id);
+    if (!existing) return false;
+
+    const result = db.prepare('DELETE FROM sprints WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
+
+  async reorderSprints(userId: string | null, phaseId: number, sprintIds: number[]): Promise<boolean> {
+    const db = getDb();
+
+    // Verify phase belongs to user's project
+    const phase = await this.getPhase(userId, phaseId);
+    if (!phase) return false;
+
+    const reorder = db.transaction(() => {
+      sprintIds.forEach((sprintId, index) => {
+        db.prepare('UPDATE sprints SET position = ? WHERE id = ? AND phase_id = ?').run(index, sprintId, phaseId);
+      });
+    });
+
+    reorder();
+    return true;
+  }
+
+  // Agent Runs
+  async getAgentRuns(userId: string | null, sprintId: number): Promise<AgentRun[]> {
+    const db = getDb();
+
+    // Verify sprint belongs to user's project
+    const sprint = await this.getSprint(userId, sprintId);
+    if (!sprint) return [];
+
+    return db.prepare(`
+      SELECT * FROM sprint_agent_runs WHERE sprint_id = ? ORDER BY created_at ASC
+    `).all(sprintId) as AgentRun[];
+  }
+
+  async createAgentRun(userId: string | null, data: CreateAgentRunData): Promise<AgentRun> {
+    const db = getDb();
+
+    // Verify sprint belongs to user's project
+    const sprint = await this.getSprint(userId, data.sprint_id);
+    if (!sprint) {
+      throw new Error('Sprint not found or access denied');
+    }
+
+    const result = db.prepare(`
+      INSERT INTO sprint_agent_runs (sprint_id, agent_name, agent_type, branch_name)
+      VALUES (?, ?, ?, ?)
+    `).run(data.sprint_id, data.agent_name, data.agent_type, data.branch_name || null);
+
+    return db.prepare('SELECT * FROM sprint_agent_runs WHERE id = ?').get(result.lastInsertRowid) as AgentRun;
+  }
+
+  async updateAgentRun(userId: string | null, id: number, data: UpdateAgentRunData): Promise<AgentRun | null> {
+    const db = getDb();
+
+    const run = db.prepare('SELECT * FROM sprint_agent_runs WHERE id = ?').get(id) as AgentRun | undefined;
+    if (!run) return null;
+
+    // Verify sprint belongs to user's project
+    const sprint = await this.getSprint(userId, run.sprint_id);
+    if (!sprint) return null;
+
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
+    if (data.branch_name !== undefined) { updates.push('branch_name = ?'); values.push(data.branch_name); }
+    if (data.started_at !== undefined) { updates.push('started_at = ?'); values.push(data.started_at); }
+    if (data.completed_at !== undefined) { updates.push('completed_at = ?'); values.push(data.completed_at); }
+    if (data.output_summary !== undefined) { updates.push('output_summary = ?'); values.push(data.output_summary); }
+    if (data.error_message !== undefined) { updates.push('error_message = ?'); values.push(data.error_message); }
+
+    if (updates.length === 0) return run;
+
+    values.push(id);
+    db.prepare(`UPDATE sprint_agent_runs SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    return db.prepare('SELECT * FROM sprint_agent_runs WHERE id = ?').get(id) as AgentRun;
+  }
+
+  // Quality Gates
+  async getQualityGates(userId: string | null, sprintId: number): Promise<QualityGate[]> {
+    const db = getDb();
+
+    // Verify sprint belongs to user's project
+    const sprint = await this.getSprint(userId, sprintId);
+    if (!sprint) return [];
+
+    return db.prepare(`
+      SELECT * FROM sprint_quality_gates WHERE sprint_id = ? ORDER BY created_at ASC
+    `).all(sprintId) as QualityGate[];
+  }
+
+  async createQualityGate(userId: string | null, data: CreateQualityGateData): Promise<QualityGate> {
+    const db = getDb();
+
+    // Verify sprint belongs to user's project
+    const sprint = await this.getSprint(userId, data.sprint_id);
+    if (!sprint) {
+      throw new Error('Sprint not found or access denied');
+    }
+
+    const result = db.prepare(`
+      INSERT INTO sprint_quality_gates (sprint_id, gate_name, gate_type, max_score)
+      VALUES (?, ?, ?, ?)
+    `).run(data.sprint_id, data.gate_name, data.gate_type, data.max_score || null);
+
+    return db.prepare('SELECT * FROM sprint_quality_gates WHERE id = ?').get(result.lastInsertRowid) as QualityGate;
+  }
+
+  async updateQualityGate(userId: string | null, id: number, data: UpdateQualityGateData): Promise<QualityGate | null> {
+    const db = getDb();
+
+    const gate = db.prepare('SELECT * FROM sprint_quality_gates WHERE id = ?').get(id) as QualityGate | undefined;
+    if (!gate) return null;
+
+    // Verify sprint belongs to user's project
+    const sprint = await this.getSprint(userId, gate.sprint_id);
+    if (!sprint) return null;
+
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.status !== undefined) { updates.push('status = ?'); values.push(data.status); }
+    if (data.score !== undefined) { updates.push('score = ?'); values.push(data.score); }
+    if (data.passed_at !== undefined) { updates.push('passed_at = ?'); values.push(data.passed_at); }
+    if (data.details !== undefined) { updates.push('details = ?'); values.push(data.details); }
+
+    if (updates.length === 0) return gate;
+
+    values.push(id);
+    db.prepare(`UPDATE sprint_quality_gates SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    return db.prepare('SELECT * FROM sprint_quality_gates WHERE id = ?').get(id) as QualityGate;
   }
 }
