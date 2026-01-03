@@ -27,8 +27,10 @@ import {
   TicketPriority,
   BOARD_COLUMNS,
   PRIORITY_LABELS,
+  PhaseWithSprints,
+  SprintWithDetails,
 } from '@/types';
-import { Trash2, Calendar } from 'lucide-react';
+import { Trash2, Calendar, Layers, Zap } from 'lucide-react';
 
 interface TicketModalProps {
   open: boolean;
@@ -37,10 +39,15 @@ interface TicketModalProps {
   tags: Tag[];
   projects: Project[];
   defaultStatus?: TicketStatus;
+  defaultProjectId?: number | null;
+  defaultPhaseId?: number | null;
+  defaultSprintId?: number | null;
   onSave: (data: {
     title: string;
     description: string;
     project_id: number | null;
+    phase_id: number | null;
+    sprint_id: number | null;
     status: TicketStatus;
     priority: TicketPriority;
     start_date: string | null;
@@ -57,12 +64,17 @@ export function TicketModal({
   tags,
   projects,
   defaultStatus = 'backlog',
+  defaultProjectId,
+  defaultPhaseId,
+  defaultSprintId,
   onSave,
   onDelete,
 }: TicketModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState<string>('none');
+  const [phaseId, setPhaseId] = useState<string>('none');
+  const [sprintId, setSprintId] = useState<string>('none');
   const [status, setStatus] = useState<TicketStatus>(defaultStatus);
   const [priority, setPriority] = useState<TicketPriority>(0);
   const [startDate, setStartDate] = useState<string>('');
@@ -70,11 +82,43 @@ export function TicketModal({
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Phase and sprint lists
+  const [phases, setPhases] = useState<PhaseWithSprints[]>([]);
+  const [sprints, setSprints] = useState<SprintWithDetails[]>([]);
+
+  // Fetch phases when project changes
+  useEffect(() => {
+    if (projectId && projectId !== 'none') {
+      fetch(`/api/phases?project_id=${projectId}`)
+        .then((res) => res.json())
+        .then((data) => setPhases(data))
+        .catch(() => setPhases([]));
+    } else {
+      setPhases([]);
+      setPhaseId('none');
+    }
+  }, [projectId]);
+
+  // Fetch sprints when phase changes
+  useEffect(() => {
+    if (phaseId && phaseId !== 'none') {
+      fetch(`/api/sprints?phase_id=${phaseId}`)
+        .then((res) => res.json())
+        .then((data) => setSprints(data))
+        .catch(() => setSprints([]));
+    } else {
+      setSprints([]);
+      setSprintId('none');
+    }
+  }, [phaseId]);
+
   useEffect(() => {
     if (ticket) {
       setTitle(ticket.title);
       setDescription(ticket.description || '');
       setProjectId(ticket.project_id?.toString() || 'none');
+      setPhaseId(ticket.phase_id?.toString() || 'none');
+      setSprintId(ticket.sprint_id?.toString() || 'none');
       setStatus(ticket.status);
       setPriority(ticket.priority);
       setStartDate(ticket.start_date || '');
@@ -83,14 +127,16 @@ export function TicketModal({
     } else {
       setTitle('');
       setDescription('');
-      setProjectId('none');
+      setProjectId(defaultProjectId?.toString() || 'none');
+      setPhaseId(defaultPhaseId?.toString() || 'none');
+      setSprintId(defaultSprintId?.toString() || 'none');
       setStatus(defaultStatus);
       setPriority(0);
       setStartDate('');
       setDueDate('');
       setSelectedTags([]);
     }
-  }, [ticket, defaultStatus]);
+  }, [ticket, defaultStatus, defaultProjectId, defaultPhaseId, defaultSprintId]);
 
   const toggleTag = (tagId: number) => {
     setSelectedTags((prev) =>
@@ -109,6 +155,8 @@ export function TicketModal({
         title: title.trim(),
         description: description.trim(),
         project_id: projectId === 'none' ? null : parseInt(projectId),
+        phase_id: phaseId === 'none' ? null : parseInt(phaseId),
+        sprint_id: sprintId === 'none' ? null : parseInt(sprintId),
         status,
         priority,
         start_date: startDate || null,
@@ -202,7 +250,11 @@ export function TicketModal({
 
           <div>
             <label className="text-sm font-medium">Project</label>
-            <Select value={projectId} onValueChange={setProjectId}>
+            <Select value={projectId} onValueChange={(v) => {
+              setProjectId(v);
+              setPhaseId('none');
+              setSprintId('none');
+            }}>
               <SelectTrigger className="mt-1 h-9 sm:h-10">
                 <SelectValue placeholder="No project" />
               </SelectTrigger>
@@ -216,6 +268,58 @@ export function TicketModal({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Phase and Sprint selectors - only show when project is selected */}
+          {projectId !== 'none' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="text-sm font-medium flex items-center gap-1">
+                  <Layers size={14} />
+                  Phase
+                </label>
+                <Select value={phaseId} onValueChange={(v) => {
+                  setPhaseId(v);
+                  setSprintId('none');
+                }}>
+                  <SelectTrigger className="mt-1 h-9 sm:h-10">
+                    <SelectValue placeholder="No phase" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No phase</SelectItem>
+                    {phases.map((phase) => (
+                      <SelectItem key={phase.id} value={phase.id.toString()}>
+                        {phase.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium flex items-center gap-1">
+                  <Zap size={14} />
+                  Sprint
+                </label>
+                <Select
+                  value={sprintId}
+                  onValueChange={setSprintId}
+                  disabled={phaseId === 'none'}
+                >
+                  <SelectTrigger className="mt-1 h-9 sm:h-10">
+                    <SelectValue placeholder={phaseId === 'none' ? 'Select phase first' : 'No sprint'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No sprint</SelectItem>
+                    {sprints.map((sprint) => (
+                      <SelectItem key={sprint.id} value={sprint.id.toString()}>
+                        {sprint.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>

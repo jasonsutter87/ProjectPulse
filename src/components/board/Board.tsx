@@ -16,6 +16,10 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { Column } from './Column';
 import { TicketCard } from './TicketCard';
 import { TicketModal } from './TicketModal';
+import { PhaseSelector } from '@/components/phases/PhaseSelector';
+import { PhaseModal } from '@/components/phases/PhaseModal';
+import { SprintSelector } from '@/components/sprints/SprintSelector';
+import { SprintModal } from '@/components/sprints/SprintModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -32,6 +36,8 @@ import {
   TicketStatus,
   BOARD_COLUMNS,
   TicketPriority,
+  PhaseStatus,
+  SprintStatus,
 } from '@/types';
 import { Plus, RefreshCw } from 'lucide-react';
 
@@ -44,12 +50,20 @@ export function Board() {
 
   // Filters
   const [filterProject, setFilterProject] = useState<string>('all');
+  const [filterPhase, setFilterPhase] = useState<number | null>(null);
+  const [filterSprint, setFilterSprint] = useState<number | null>(null);
   const [filterTag, setFilterTag] = useState<string>('all');
 
-  // Modal state
+  // Ticket modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<TicketWithTags | null>(null);
   const [newTicketStatus, setNewTicketStatus] = useState<TicketStatus>('backlog');
+
+  // Phase modal state
+  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
+
+  // Sprint modal state
+  const [sprintModalOpen, setSprintModalOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -88,9 +102,28 @@ export function Board() {
     fetchData();
   }, [fetchData]);
 
+  // Reset phase/sprint filters when project changes
+  const handleProjectChange = (value: string) => {
+    setFilterProject(value);
+    setFilterPhase(null);
+    setFilterSprint(null);
+  };
+
+  // Reset sprint filter when phase changes
+  const handlePhaseChange = (phaseId: number | null) => {
+    setFilterPhase(phaseId);
+    setFilterSprint(null);
+  };
+
   // Filter tickets
   const filteredTickets = tickets.filter((ticket) => {
     if (filterProject !== 'all' && ticket.project_id?.toString() !== filterProject) {
+      return false;
+    }
+    if (filterPhase !== null && ticket.phase_id !== filterPhase) {
+      return false;
+    }
+    if (filterSprint !== null && ticket.sprint_id !== filterSprint) {
       return false;
     }
     if (filterTag !== 'all' && !ticket.tags.some((t) => t.id.toString() === filterTag)) {
@@ -219,6 +252,8 @@ export function Board() {
     title: string;
     description: string;
     project_id: number | null;
+    phase_id: number | null;
+    sprint_id: number | null;
     status: TicketStatus;
     priority: TicketPriority;
     start_date: string | null;
@@ -237,6 +272,47 @@ export function Board() {
     });
 
     fetchData();
+  };
+
+  // Phase handlers
+  const handleSavePhase = async (data: {
+    project_id: number;
+    name: string;
+    description: string;
+    status: PhaseStatus;
+    start_date: string | null;
+    end_date: string | null;
+  }) => {
+    await fetch('/api/phases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    // Force re-render of phase selector by resetting the filter
+    const currentProject = filterProject;
+    setFilterProject('');
+    setTimeout(() => setFilterProject(currentProject), 0);
+  };
+
+  // Sprint handlers
+  const handleSaveSprint = async (data: {
+    phase_id: number;
+    name: string;
+    description: string;
+    goal: string;
+    status: SprintStatus;
+    start_date: string | null;
+    end_date: string | null;
+  }) => {
+    await fetch('/api/sprints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    // Force re-render of sprint selector by resetting the filter
+    const currentPhase = filterPhase;
+    setFilterPhase(null);
+    setTimeout(() => setFilterPhase(currentPhase), 0);
   };
 
   const handleDeleteTicket = async (id: number) => {
@@ -267,9 +343,9 @@ export function Board() {
           </Button>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
           {/* Project Filter */}
-          <Select value={filterProject} onValueChange={setFilterProject}>
+          <Select value={filterProject} onValueChange={handleProjectChange}>
             <SelectTrigger className="w-full sm:w-40 h-9 sm:h-10">
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
@@ -282,6 +358,22 @@ export function Board() {
               ))}
             </SelectContent>
           </Select>
+
+          {/* Phase Filter */}
+          <PhaseSelector
+            projectId={filterProject !== 'all' ? parseInt(filterProject) : null}
+            selectedPhaseId={filterPhase}
+            onPhaseChange={handlePhaseChange}
+            onCreatePhase={() => setPhaseModalOpen(true)}
+          />
+
+          {/* Sprint Filter */}
+          <SprintSelector
+            phaseId={filterPhase}
+            selectedSprintId={filterSprint}
+            onSprintChange={setFilterSprint}
+            onCreateSprint={() => setSprintModalOpen(true)}
+          />
 
           {/* Tag Filter */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 -mx-1 px-1">
@@ -345,9 +437,32 @@ export function Board() {
         tags={tags}
         projects={projects}
         defaultStatus={newTicketStatus}
+        defaultProjectId={filterProject !== 'all' ? parseInt(filterProject) : null}
+        defaultPhaseId={filterPhase}
+        defaultSprintId={filterSprint}
         onSave={handleSaveTicket}
         onDelete={handleDeleteTicket}
       />
+
+      {/* Phase Modal */}
+      {filterProject !== 'all' && (
+        <PhaseModal
+          open={phaseModalOpen}
+          onOpenChange={setPhaseModalOpen}
+          projectId={parseInt(filterProject)}
+          onSave={handleSavePhase}
+        />
+      )}
+
+      {/* Sprint Modal */}
+      {filterPhase !== null && (
+        <SprintModal
+          open={sprintModalOpen}
+          onOpenChange={setSprintModalOpen}
+          phaseId={filterPhase}
+          onSave={handleSaveSprint}
+        />
+      )}
     </div>
   );
 }

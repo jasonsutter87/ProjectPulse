@@ -38,13 +38,12 @@ Add hierarchical project management: Projects > Phases > Sprints > Tasks
 - [x] Update /api/tickets to support sprint_id filter
 
 ### UI Components - Phase/Sprint Selection
-- [ ] Create PhaseSelector component
-- [ ] Create PhaseModal component for create/edit
-- [ ] Create SprintSelector component
-- [ ] Create SprintModal component for create/edit
-- [ ] Create BoardHeader component with phase/sprint tabs
-- [ ] Update Board.tsx to filter by phase/sprint
-- [ ] Update TicketModal to include phase/sprint fields
+- [x] Create PhaseSelector component
+- [x] Create PhaseModal component for create/edit
+- [x] Create SprintSelector component
+- [x] Create SprintModal component for create/edit
+- [x] Update Board.tsx to filter by phase/sprint (includes phase/sprint selectors in toolbar)
+- [x] Update TicketModal to include phase/sprint fields
 
 ### UI Components - Orchestrator Dashboard
 - [ ] Create SprintConfigModal for repo/branch config
