@@ -5,28 +5,35 @@ export * from './types';
 let storageInstance: Storage | null = null;
 let storagePromise: Promise<Storage> | null = null;
 
-function isServerlessEnvironment(): boolean {
-  // Check multiple indicators for serverless environment
-  // On AWS Lambda / Netlify Functions, /var/task is the function directory
+function isNetlifyEnvironment(): boolean {
   const isLambda = process.cwd().startsWith('/var/task') || process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined;
-
-  // Check Netlify-specific indicators
   const isNetlify = (
     process.env.NETLIFY === 'true' ||
     process.env.CONTEXT !== undefined ||
     process.env.NETLIFY_DEV === 'true' ||
     process.env.DEPLOY_URL !== undefined
   );
-
   return isLambda || isNetlify;
 }
 
+function isVercelEnvironment(): boolean {
+  return process.env.VERCEL === '1';
+}
+
+function isServerlessEnvironment(): boolean {
+  return isNetlifyEnvironment() || isVercelEnvironment();
+}
+
 async function createStorage(): Promise<Storage> {
-  // Use Netlify Blobs in serverless environments, SQLite locally
-  if (isServerlessEnvironment()) {
+  // Use appropriate storage based on environment
+  if (isVercelEnvironment()) {
+    const { VercelKVStorage } = await import('./vercel-kv');
+    return new VercelKVStorage();
+  } else if (isNetlifyEnvironment()) {
     const { BlobStorage } = await import('./blobs');
     return new BlobStorage();
   } else {
+    // Local development - use SQLite
     // Dynamic import with webpackIgnore to prevent bundling on serverless
     const { SQLiteStorage } = await import(/* webpackIgnore: true */ './sqlite');
     return new SQLiteStorage();
