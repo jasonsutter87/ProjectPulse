@@ -45,7 +45,10 @@ Status: backlog, in_progress, review, done
 
 ## Instructions
 
-When the user invokes `/board`, parse their command and interact with the ProjectPulse API running at `http://localhost:3000`.
+When the user invokes `/board`, parse their command and interact with the ProjectPulse API.
+
+**API Base URL:** Use `$PULSE_API_URL` if set, otherwise `https://project-pulse-lilac.vercel.app`
+**Authentication:** Include `Authorization: Bearer $PULSE_API_KEY` header if `$PULSE_API_KEY` is set
 
 ### API Endpoints
 
@@ -55,8 +58,15 @@ When the user invokes `/board`, parse their command and interact with the Projec
 - `DELETE /api/tickets/:id` - Delete ticket
 - `GET /api/projects` - List projects
 - `GET /api/tags` - List tags
-- `POST /api/scan` - Scan project `{path, max_depth}`
-- `POST /api/scan/import` - Scan and import `{path, max_depth, include_subprojects}`
+- `POST /api/scan` - Scan local project `{path, max_depth}`
+- `POST /api/scan/import` - Scan and import local `{path, max_depth, include_subprojects}`
+- `POST /api/scan/github` - Scan GitHub repo `{repo_url, github_token?}`
+- `POST /api/scan/github/import` - Scan and import GitHub repo `{repo_url, github_token?}`
+
+**Field Reference:**
+- `status`: `"backlog"`, `"in_progress"`, `"done"`
+- `priority`: `0` (low), `1` (medium), `2` (high), `3` (critical)
+- `tag_ids`: `1`=dev, `4`=go-live, `6`=feature (fetch `/api/tags` for full list)
 
 ### Command Handling
 
@@ -159,11 +169,47 @@ Use '/board scan <path> --import' to create project and tickets.
 **API URL Priority:**
 1. If `PULSE_API_URL` env var is set, use that
 2. If in a project directory with ProjectPulse, check if localhost:3000 is running
-3. Otherwise, use the production URL: `https://YOUR-NETLIFY-SITE.netlify.app`
+3. Otherwise, use production: `https://project-pulse-lilac.vercel.app`
 
-Before making API calls, check if the API is reachable. For production, the user should set:
+**Production URLs:**
+- Vercel: `https://project-pulse-lilac.vercel.app`
+- Netlify: `https://projectpulse-app.netlify.app`
+
+Set in your shell profile (~/.zshrc or ~/.bashrc):
 ```bash
-export PULSE_API_URL="https://your-projectpulse.netlify.app"
+export PULSE_API_URL="https://project-pulse-lilac.vercel.app"
+export PULSE_API_KEY="your-api-secret-key"  # Optional, for authenticated access
 ```
 
-Or add to their shell profile (~/.zshrc or ~/.bashrc).
+### Authentication
+
+**When `PULSE_API_KEY` is set**, include it in all requests:
+```bash
+curl -X GET "$PULSE_API_URL/api/tickets" \
+  -H "Authorization: Bearer $PULSE_API_KEY"
+```
+
+**When making requests from code:**
+```typescript
+const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+if (process.env.PULSE_API_KEY) {
+  headers['Authorization'] = `Bearer ${process.env.PULSE_API_KEY}`;
+}
+fetch(`${PULSE_API_URL}/api/tickets`, { headers });
+```
+
+### GitHub Scanning
+
+For deployed environments, use GitHub repo scanning instead of local paths:
+
+**Scan a GitHub repo:**
+```
+/board scan github.com/owner/repo
+/board scan https://github.com/owner/repo
+```
+
+**API Endpoints for GitHub:**
+- `POST /api/scan/github` - Scan repo `{repo_url, github_token?}`
+- `POST /api/scan/github/import` - Scan and import `{repo_url, github_token?}`
+
+For private repos, set `GITHUB_TOKEN` env var or pass `github_token` in request.
