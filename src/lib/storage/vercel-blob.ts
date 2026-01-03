@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { put, list, del } from '@vercel/blob';
 import { Project, Tag, TicketWithTags, TicketStatus, TicketPriority } from '@/types';
 import {
   Storage,
@@ -9,8 +9,8 @@ import {
   TicketFilters,
 } from './types';
 
-// Data structures for KV storage
-interface KVData {
+// Data structures for Blob storage
+interface BlobData {
   projects: Record<number, Project>;
   tickets: Record<number, TicketWithTags>;
   tags: Record<number, Tag>;
@@ -21,14 +21,14 @@ interface KVData {
   };
 }
 
-function getDataKey(userId: string | null): string {
+function getDataPath(userId: string | null): string {
   if (userId) {
-    return `projectpulse:users:${userId}:data`;
+    return `projectpulse/users/${userId}/data.json`;
   }
-  return 'projectpulse:data';
+  return 'projectpulse/data.json';
 }
 
-function getDefaultData(userId: string | null): KVData {
+function getDefaultData(userId: string | null): BlobData {
   return {
     projects: {},
     tickets: {},
@@ -44,20 +44,48 @@ function getDefaultData(userId: string | null): KVData {
   };
 }
 
-export class VercelKVStorage implements Storage {
-  private async getData(userId: string | null): Promise<KVData> {
+export class VercelBlobStorage implements Storage {
+  private async getData(userId: string | null): Promise<BlobData> {
     try {
-      const dataKey = getDataKey(userId);
-      const data = await kv.get<KVData>(dataKey);
-      return data || getDefaultData(userId);
+      const path = getDataPath(userId);
+      // List blobs with the prefix to find our data file
+      const { blobs } = await list({ prefix: path });
+
+      if (blobs.length === 0) {
+        return getDefaultData(userId);
+      }
+
+      // Fetch the blob content
+      const response = await fetch(blobs[0].url);
+      if (!response.ok) {
+        return getDefaultData(userId);
+      }
+
+      const data = await response.json();
+      return data as BlobData;
     } catch {
       return getDefaultData(userId);
     }
   }
 
-  private async saveData(userId: string | null, data: KVData): Promise<void> {
-    const dataKey = getDataKey(userId);
-    await kv.set(dataKey, data);
+  private async saveData(userId: string | null, data: BlobData): Promise<void> {
+    const path = getDataPath(userId);
+
+    // Delete existing blob first (Vercel Blob doesn't support overwrite by path)
+    try {
+      const { blobs } = await list({ prefix: path });
+      for (const blob of blobs) {
+        await del(blob.url);
+      }
+    } catch {
+      // Ignore delete errors
+    }
+
+    // Upload new data
+    await put(path, JSON.stringify(data), {
+      access: 'public',
+      addRandomSuffix: false,
+    });
   }
 
   // Projects

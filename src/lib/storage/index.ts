@@ -27,8 +27,8 @@ function isServerlessEnvironment(): boolean {
 async function createStorage(): Promise<Storage> {
   // Use appropriate storage based on environment
   if (isVercelEnvironment()) {
-    const { VercelKVStorage } = await import('./vercel-kv');
-    return new VercelKVStorage();
+    const { VercelBlobStorage } = await import('./vercel-blob');
+    return new VercelBlobStorage();
   } else if (isNetlifyEnvironment()) {
     const { BlobStorage } = await import('./blobs');
     return new BlobStorage();
