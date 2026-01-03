@@ -48,3 +48,6 @@ coverage/
 # SQLite WAL files
 *.db-wal
 *.db-shm
+
+# Local Netlify folder
+.netlify
