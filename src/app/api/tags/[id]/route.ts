@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorage } from '@/lib/storage';
+import { getStorageAsync } from '@/lib/storage';
 import { getUserId } from '@/lib/auth';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -9,7 +9,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const userId = await getUserId();
-    const storage = getStorage();
+    const storage = await getStorageAsync();
 
     const deleted = await storage.deleteTag(userId, parseInt(id));
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorage } from '@/lib/storage';
+import { getStorageAsync } from '@/lib/storage';
 import { getUserId } from '@/lib/auth';
 import { TicketStatus } from '@/types';
 
@@ -13,7 +13,7 @@ interface ReorderRequest {
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId();
-    const storage = getStorage();
+    const storage = await getStorageAsync();
     const body: ReorderRequest = await request.json();
 
     const { ticket_id, new_status, new_position } = body;

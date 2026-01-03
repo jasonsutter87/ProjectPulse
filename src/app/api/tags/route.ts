@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorage } from '@/lib/storage';
+import { getStorageAsync } from '@/lib/storage';
 import { getUserId } from '@/lib/auth';
 
 // GET /api/tags - List all tags
 export async function GET() {
   try {
     const userId = await getUserId();
-    const storage = getStorage();
+    const storage = await getStorageAsync();
     const tags = await storage.getTags(userId);
     return NextResponse.json(tags);
   } catch (error) {
@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId();
-    const storage = getStorage();
+    const storage = await getStorageAsync();
     const body = await request.json();
 
     if (!body.name) {

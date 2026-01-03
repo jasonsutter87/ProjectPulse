@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorage } from '@/lib/storage';
+import { getStorageAsync } from '@/lib/storage';
 import { getUserId } from '@/lib/auth';
 
 // GET /api/projects - List all projects
 export async function GET(request: NextRequest) {
   try {
     const userId = await getUserId();
-    const storage = getStorage();
+    const storage = await getStorageAsync();
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId();
-    const storage = getStorage();
+    const storage = await getStorageAsync();
     const body = await request.json();
 
     if (!body.name || !body.path) {

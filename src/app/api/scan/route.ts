@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scanProject, getProjectName, ScanResult } from '@/lib/scanner';
-import { getStorage } from '@/lib/storage';
+import { getStorageAsync } from '@/lib/storage';
 
 // POST /api/scan - Scan a directory and return results
 export async function POST(request: NextRequest) {
@@ -37,7 +37,7 @@ export async function importScanResult(
   result: ScanResult,
   createProject: boolean = true
 ): Promise<ImportResult> {
-  const storage = getStorage();
+  const storage = await getStorageAsync();
 
   let projectId = 0;
 
