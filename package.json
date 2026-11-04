@@ -74,7 +74,6 @@
     "baseline-browser-mapping@^2": "^2.11.0",
     "uuid@^13": "^13.0.1",
     "@fastify/busboy@^2": "^3.2.2",
-    "@opentelemetry/propagator-jaeger@^1": "^2.9.0",
     "brace-expansion@^1": "^1.1.21",
     "brace-expansion@^2": "^2.1.7",
     "browserslist@^4": "^4.28.7",
@@ -87,8 +86,9 @@
     "undici@^5": "^6.29.1",
     "zod@^4": "^4.6.6",
     "@humanfs/node@^0.16": "^0.16.8",
-    "@opentelemetry/core@^1": "^2.8.0",
     "ajv@^6": "^6.14.0",
-    "@babel/core@^7": "^7.29.6"
+    "@babel/core@^7": "^7.29.6",
+    "@opentelemetry/propagator-jaeger": "^2.9.0",
+    "@opentelemetry/core": "^2.8.0"
   }
 }
